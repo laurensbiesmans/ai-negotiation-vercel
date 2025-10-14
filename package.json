@@ -16,6 +16,7 @@
     "openai": "^4.70.1",
     "tailwindcss": "^3.4.10",
     "postcss": "^8.4.47",
-    "autoprefixer": "^10.4.20"
+    "autoprefixer": "^10.4.20",
+    "recharts": "^2.12.0"
   }
 }
