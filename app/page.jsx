@@ -114,9 +114,9 @@ export default function Page() {
         await runAnalysis();
 
         // Optional redirect to Qualtrics after 4s
-        setTimeout(() => {
-          window.location.href = "https://YOUR-QUALTRICS-LINK.com"; // ← replace this
-        }, 4000);
+       // setTimeout(() => {
+        //  window.location.href = "https://YOUR-QUALTRICS-LINK.com"; // ← replace this
+     //   }, 4000);
 
         return;
       }
