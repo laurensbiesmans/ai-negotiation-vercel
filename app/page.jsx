@@ -1,8 +1,17 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export default function Page() {
-  // Visible chat transcript (what the participant sees)
+  // Visible chat transcript
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -11,23 +20,21 @@ export default function Page() {
     },
   ]);
 
-  // UI state
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
+  const [inputDisabled, setInputDisabled] = useState(false); // NEW
 
-  // Internal (not shown) negotiation state from the HR policy agent
   const negStateRef = useRef({});
-  // Optional metadata from URL (Qualtrics): rid & cond
   const metaRef = useRef({ rid: null, cond: null });
 
-  // Scroll to bottom whenever messages change
+  // Scroll to bottom
   const bottomRef = useRef(null);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Read URL params once (rid, cond)
+  // Read URL params (Qualtrics)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const p = new URLSearchParams(window.location.search);
@@ -35,18 +42,35 @@ export default function Page() {
     metaRef.current.cond = p.get("cond") || null;
   }, []);
 
+  // --- 🧠 AUTO-DETECTION FUNCTION FOR AGREEMENT ---
+  function detectAgreement(text) {
+    const dealKeywords = [
+      "we have a deal",
+      "offer accepted",
+      "welcome aboard",
+      "congratulations",
+      "agreed on",
+      "i'm happy to confirm",
+      "the offer is accepted",
+      "accepted the offer",
+      "we agree",
+      "sounds good to me",
+    ];
+    const lower = text.toLowerCase();
+    return dealKeywords.some((k) => lower.includes(k));
+  }
+
+  // --- 💬 SEND MESSAGE FUNCTION ---
   async function sendMessage(e) {
     e?.preventDefault?.();
-    if (!input.trim()) return;
+    if (!input.trim() || inputDisabled) return;
 
-    // Push user's message to the visible transcript
     const newMessages = [...messages, { role: "user", content: input }];
     setMessages(newMessages);
     setInput("");
     setLoading(true);
 
     try {
-      // Send both the visible transcript and the internal HR state to the API
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,16 +83,31 @@ export default function Page() {
       });
 
       const data = await res.json();
-      // data is expected as: { message: "...", state: {...} } from the HR policy agent
-
-      // Show ONLY the HR message to participants
       const hrText = data?.message || data?.reply || data?.error || "No response.";
 
+      // Add HR message
       setMessages((prev) => [...prev, { role: "assistant", content: hrText }]);
-
-      // Keep the internal state for the next turn
       if (data?.state && typeof data.state === "object") {
         negStateRef.current = data.state;
+      }
+
+      // 🧠 Detect agreement and stop further replies
+      if (detectAgreement(hrText)) {
+        setInputDisabled(true);
+        setMessages((prev) => [
+          ...prev,
+          { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
+        ]);
+
+        // Auto-run analysis
+        await runAnalysis();
+
+        // Optional redirect to Qualtrics after 4s
+        setTimeout(() => {
+          window.location.href =
+            "https://YOUR-QUALTRICS-LINK.com"; // Replace with real link
+        }, 4000);
+        return;
       }
     } catch {
       setMessages((prev) => [
@@ -80,8 +119,8 @@ export default function Page() {
     setLoading(false);
   }
 
+  // --- 📊 RUN ANALYSIS FUNCTION ---
   async function runAnalysis() {
-    // Build a plain-text transcript for the analyzer
     const transcript = messages.map((m) => `${m.role}: ${m.content}`).join("\n");
     setLoading(true);
     try {
@@ -98,9 +137,21 @@ export default function Page() {
     setLoading(false);
   }
 
+  // --- 📈 VISUALIZATION HELPER ---
+  const getIndexData = (analysis) => {
+    if (!analysis) return [];
+    return [
+      { name: "Competition", score: analysis.Competition?.comp_index || 0 },
+      { name: "Collaboration", score: analysis.Collaboration?.collab_index || 0 },
+      { name: "Compromise", score: analysis.Compromise?.compr_index || 0 },
+      { name: "Accommodation", score: analysis.Accommodation?.accom_index || 0 },
+      { name: "Avoidance", score: analysis.Avoidance?.avoid_index || 0 },
+    ];
+  };
+
   return (
     <div className="bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
-      {/* Chat area */}
+      {/* Chat Area */}
       <div className="flex flex-col p-4 space-y-2 max-h-[60vh] overflow-y-auto">
         {messages.map((m, i) => (
           <div
@@ -108,6 +159,8 @@ export default function Page() {
             className={`rounded-2xl px-4 py-2 shadow max-w-[80%] text-sm ${
               m.role === "assistant"
                 ? "bg-gray-200 text-gray-800 self-start rounded-bl-none"
+                : m.role === "system"
+                ? "bg-green-100 text-green-800 self-center text-center"
                 : "bg-blue-600 text-white self-end rounded-br-none"
             }`}
           >
@@ -120,7 +173,7 @@ export default function Page() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
+      {/* Input Bar */}
       <form
         onSubmit={sendMessage}
         className="flex items-center gap-2 border-t border-gray-200 p-3 bg-gray-50"
@@ -128,12 +181,15 @@ export default function Page() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message..."
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+          placeholder={
+            inputDisabled ? "Negotiation concluded." : "Type your message..."
+          }
+          disabled={loading || inputDisabled}
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100"
         />
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || inputDisabled}
           className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
         >
           Send
@@ -148,13 +204,33 @@ export default function Page() {
         </button>
       </form>
 
-      {/* Optional analysis output for researchers (not needed for participants) */}
+      {/* 📊 Visualization and Analysis Output */}
       {analysis && (
-        <div className="p-4 bg-green-50 border-t border-green-200 text-sm">
-          <b>AI Analysis:</b>
-          <pre className="mt-2 whitespace-pre-wrap">
-            {JSON.stringify(analysis, null, 2)}
-          </pre>
+        <div className="p-4 bg-gray-50 border-t border-gray-200 text-sm">
+          <h2 className="text-base font-semibold mb-2">Negotiation Style Profile</h2>
+          <div className="w-full h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={getIndexData(analysis)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis domain={[1, 7]} />
+                <Tooltip />
+                <Bar dataKey="score" fill="#2563eb" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-3 text-gray-600 italic">
+            {analysis.notes || "No qualitative summary available."}
+          </p>
+
+          <details className="mt-3">
+            <summary className="cursor-pointer text-gray-500 text-xs">
+              Show raw data
+            </summary>
+            <pre className="mt-2 text-xs bg-white border border-gray-200 p-2 rounded">
+              {JSON.stringify(analysis, null, 2)}
+            </pre>
+          </details>
         </div>
       )}
     </div>
