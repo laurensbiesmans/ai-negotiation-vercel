@@ -23,12 +23,12 @@ export default function Page() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
-  const [inputDisabled, setInputDisabled] = useState(false); // NEW
+  const [inputDisabled, setInputDisabled] = useState(false);
 
   const negStateRef = useRef({});
   const metaRef = useRef({ rid: null, cond: null });
 
-  // Scroll to bottom
+  // Scroll to bottom on new message
   const bottomRef = useRef(null);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,19 +42,30 @@ export default function Page() {
     metaRef.current.cond = p.get("cond") || null;
   }, []);
 
-  // --- 🧠 AUTO-DETECTION FUNCTION FOR AGREEMENT ---
+  // --- 🧠 IMPROVED AUTO-DETECTION FUNCTION FOR AGREEMENT ---
   function detectAgreement(text) {
     const dealKeywords = [
       "we have a deal",
+      "deal",
+      "agreement",
       "offer accepted",
+      "accept the offer",
+      "i accept",
+      "accepted",
       "welcome aboard",
       "congratulations",
       "agreed on",
       "i'm happy to confirm",
-      "the offer is accepted",
-      "accepted the offer",
-      "we agree",
+      "sounds fair",
+      "that works for me",
+      "this looks good",
+      "offer sounds good",
+      "i'm satisfied",
+      "i'll take it",
+      "i accept your offer",
       "sounds good to me",
+      "happy to join",
+      "looking forward to joining",
     ];
     const lower = text.toLowerCase();
     return dealKeywords.some((k) => lower.includes(k));
@@ -99,14 +110,14 @@ export default function Page() {
           { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
         ]);
 
-        // Auto-run analysis
+        // Auto-run analysis after agreement
         await runAnalysis();
 
         // Optional redirect to Qualtrics after 4s
         setTimeout(() => {
-          window.location.href =
-            "https://YOUR-QUALTRICS-LINK.com"; // Replace with real link
+          window.location.href = "https://YOUR-QUALTRICS-LINK.com"; // ← replace this
         }, 4000);
+
         return;
       }
     } catch {
