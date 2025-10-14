@@ -7,7 +7,7 @@ export default function Page() {
     {
       role: "assistant",
       content:
-        "Thank you for your interest. The initial offer is €2500 net per month with standard benefits. How would you like to respond?",
+        "Thank you for joining me in this conversation to discuss your contract as we would like to offer you this job. Based on your relevant experience and match with this role, we would like to offer you a salary of €2500 net per month with standard benefits, such as 20 days paid leave, hospitalisation, and meal vouchers. How would you like to respond?",
     },
   ]);
 
