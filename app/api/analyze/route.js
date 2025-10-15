@@ -28,7 +28,6 @@ Return STRICT JSON in this format:
     "persistent_no": number,
     "express_unreasonableness": number,
     "present_market_value": number,
-    "comp_index": number
   },
   "Collaboration": {
     "mutual_acceptability": number,
@@ -38,24 +37,20 @@ Return STRICT JSON in this format:
     "open_concerns": number,
     "collaborate_offer": number,
     "understand_position": number,
-    "collab_index": number
   },
   "Compromise": {
     "find_middle_ground": number,
     "propose_middle_ground": number,
     "give_and_take": number,
-    "compr_index": number
   },
   "Accommodation": {
     "give_in_to_demands": number,
     "allow_concessions": number,
     "accommodate_wishes": number,
     "go_along_offer": number,
-    "accom_index": number
   },
   "Avoidance": {
     "avoid_negotiating": number,
-    "avoid_index": number
   },
   "notes": "concise qualitative summary (1–2 sentences)"
 }
@@ -112,7 +107,6 @@ export async function POST(req) {
       persistent_no: c.persistent_no || "",
       express_unreasonableness: c.express_unreasonableness || "",
       present_market_value: c.present_market_value || "",
-      comp_index: c.comp_index || "",
       // Collaboration
       mutual_acceptability: l.mutual_acceptability || "",
       integrate_interests: l.integrate_interests || "",
@@ -121,21 +115,17 @@ export async function POST(req) {
       open_concerns: l.open_concerns || "",
       collaborate_offer: l.collaborate_offer || "",
       understand_position: l.understand_position || "",
-      collab_index: l.collab_index || "",
       // Compromise
       find_middle_ground: p.find_middle_ground || "",
       propose_middle_ground: p.propose_middle_ground || "",
       give_and_take: p.give_and_take || "",
-      compr_index: p.compr_index || "",
       // Accommodation
       give_in_to_demands: a.give_in_to_demands || "",
       allow_concessions: a.allow_concessions || "",
       accommodate_wishes: a.accommodate_wishes || "",
       go_along_offer: a.go_along_offer || "",
-      accom_index: a.accom_index || "",
       // Avoidance
       avoid_negotiating: v.avoid_negotiating || "",
-      avoid_index: v.avoid_index || "",
     });
 
     // Redirect to Qualtrics continuation (change QID if needed)
