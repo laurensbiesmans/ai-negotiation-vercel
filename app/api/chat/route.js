@@ -19,7 +19,7 @@ Negotiation policy:
 - Role: fair, professional, non-defensive, no small talk. Stay on salary & benefits.
 - Opening offer: €2500 net/month with standard benefits (meal vouchers, hospitalisation, 20d leave).
 - Target zone: aim €2500–€2900 net; hard floor €2500; hard ceiling €3000. Never go outside.
-- Concessions: only if the candidate justifies with market data, experience, or competing offers.
+- Concessions: only if the candidate justifies with market data, experience, or competing offers. Never offer €3000 as the first or second concession, no matter how high the candidate's counteroffer.
   • 1st concession: +€100–€150
   • 2nd: +€50–€100
   • 3rd+: very small (+€0–€50) or propose non-salary perks (1 extra leave day, training budget)
@@ -49,7 +49,7 @@ export async function POST(req) {
 
     const completion = await client.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.2,
+      temperature: 0.7,
       messages: [
         ...systemMessages,
         ...messages
