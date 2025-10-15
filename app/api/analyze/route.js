@@ -10,6 +10,42 @@ Use the conversation to rate the candidate on the following five conflict-handli
 For each item, assign a score from 1 (strongly disagree) to 7 (strongly agree)
 based solely on observable negotiation behavior (what the candidate says/does).
 
+Definitions of the five dimensions, from Marks & Harold (2011):
+[Collaborating]
+This strategy has also been referred to as integrating or problem solving. Relative to the dual concerns
+model, this strategy represents a high concern for attaining one’s own outcomes as well as a high
+concern for whether the other party attains their desired outcomes. A collaborative strategy is
+represented by a desire to exchange meaningful and accurate information in order to reach an
+agreement that is best for all parties involved. There is an emphasis on discovery of the basic interests of
+those involved in the negotiation, in order to craft a solution that meets both parties’ interests. This
+strategy is especially appropriate when there is value to synthesizing ideas to develop better solutions,
+when time is available for negotiation, and when both parties have an investment in the outcomes
+(Lewicki et al., 2004).
+
+[Competing]
+Also called contending or dominating, the competing strategy represents a greater concern for one’s
+own outcomes and a lower concern for other’s outcomes. Tactics utilized in a competing strategy can
+include persuading, threatening, misrepresenting, and asserting.
+
+[Accommodating]
+Also referred to as obliging or yielding, an accommodating strategy to negotiation represents high
+concern for others and low concerns about one’s own outcomes. Negotiators pursuing an
+accommodating strategy are more interested in having others attain their desired outcomes. While
+this strategy has disadvantages when one is trying to reach agreement on issues that are important, this
+strategy may be appropriate in situations where one’s focus is on the longer term relationship or one is
+negotiating from a position of limited power.
+
+[Compromising]
+Compromising involves some level of concern for one’s own outcomes and some level for others’
+outcomes. The use of a compromise strategy would include the use of a give-and-take approach with a
+desire to reach an acceptable middle ground.
+
+[Avoiding]
+This approach involves dodging situations that would involve negotiation. While there are situations
+where an ‘‘avoid’’ approach would be effective, often in salary negotiations an avoid approach ‘‘leaves
+money on the table.’’ The dual concerns model considers the avoiding strategy as one that represents
+low concern about one’s own and other’s outcomes.
+
 Return STRICT JSON in this format:
 {
   "Competition": {
@@ -21,7 +57,7 @@ Return STRICT JSON in this format:
     "comp_market": number,
     "comp_index": number
   },
-  "Collaboration": {
+  "Collaboratiing": {
     "collab_joint": number,
     "collab_integrate": number,
     "collab_work": number,
@@ -99,7 +135,7 @@ export async function POST(req) {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await client.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.2,
+      temperature: 0.1,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: ANALYZE_PROMPT },
