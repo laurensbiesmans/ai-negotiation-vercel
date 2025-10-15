@@ -46,7 +46,6 @@ export default function Page() {
     return text.toLowerCase().replace(/[.,!?'"-]/g, " ").replace(/\s+/g, " ").trim();
   }
 
-  // Only detect closure when the AI itself confirms agreement
   function detectAgreement(text) {
     const t = normalize(text);
     const patterns = [
@@ -92,16 +91,14 @@ export default function Page() {
       const data = await res.json();
       const hrText = data?.message || data?.reply || data?.error || "No response.";
 
-      // Add HR reply
       const updated = [...newMessages, { role: "assistant", content: hrText }];
       setMessages(updated);
 
-      // Save HR internal state
       if (data?.state && typeof data.state === "object") {
         negStateRef.current = data.state;
       }
 
-      // 🧠 Detect AI agreement ONLY when HR speaks
+      // 🧠 Detect AI agreement
       if (detectAgreement(hrText)) {
         setInputDisabled(true);
         const doneMessages = [
@@ -109,7 +106,51 @@ export default function Page() {
           { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
         ];
         setMessages(doneMessages);
-        await runAnalysis(doneMessages);
+
+        const analysisData = await runAnalysis(doneMessages);
+        const baseQualtrics = "https://feb.qualtrics.com/jfe/form/SV_3k1cnUM6cqEVGL4";
+
+        // Prepare all data for redirect
+        const params = new URLSearchParams({
+          rid: metaRef.current.rid || "TEST",
+          agreement: "yes",
+          salary: analysisData?.salary || "0",
+          // Competition
+          persuade_with_threats: analysisData?.Competition?.persuade_with_threats || "0",
+          present_qualifications: analysisData?.Competition?.present_qualifications || "0",
+          communicate_value: analysisData?.Competition?.communicate_value || "0",
+          persistent_no: analysisData?.Competition?.persistent_no || "0",
+          express_unreasonableness: analysisData?.Competition?.express_unreasonableness || "0",
+          present_market_value: analysisData?.Competition?.present_market_value || "0",
+          comp_index: analysisData?.Competition?.comp_index || "0",
+          // Collaboration
+          mutual_acceptability: analysisData?.Collaboration?.mutual_acceptability || "0",
+          integrate_interests: analysisData?.Collaboration?.integrate_interests || "0",
+          joint_offer: analysisData?.Collaboration?.joint_offer || "0",
+          accurate_information: analysisData?.Collaboration?.accurate_information || "0",
+          open_concerns: analysisData?.Collaboration?.open_concerns || "0",
+          collaborate_offer: analysisData?.Collaboration?.collaborate_offer || "0",
+          understand_position: analysisData?.Collaboration?.understand_position || "0",
+          collab_index: analysisData?.Collaboration?.collab_index || "0",
+          // Compromise
+          find_middle_ground: analysisData?.Compromise?.find_middle_ground || "0",
+          propose_middle_ground: analysisData?.Compromise?.propose_middle_ground || "0",
+          give_and_take: analysisData?.Compromise?.give_and_take || "0",
+          compr_index: analysisData?.Compromise?.compr_index || "0",
+          // Accommodation
+          give_in_to_demands: analysisData?.Accommodation?.give_in_to_demands || "0",
+          allow_concessions: analysisData?.Accommodation?.allow_concessions || "0",
+          accommodate_wishes: analysisData?.Accommodation?.accommodate_wishes || "0",
+          go_along_offer: analysisData?.Accommodation?.go_along_offer || "0",
+          accom_index: analysisData?.Accommodation?.accom_index || "0",
+          // Avoidance
+          avoid_negotiating: analysisData?.Avoidance?.avoid_negotiating || "0",
+          avoid_index: analysisData?.Avoidance?.avoid_index || "0",
+        });
+
+        // ✅ Uncomment next line when you want Qualtrics redirect to activate
+        // window.location.href = `${baseQualtrics}?${params.toString()}`;
+
         return;
       }
     } catch {
@@ -123,30 +164,26 @@ export default function Page() {
   }
 
   // --- 📊 Run analysis (AI evaluation) ---
-async function runAnalysis(messagesOverride) {
-  const arr = messagesOverride || messages;
-  const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
-  setLoading(true);
-  try {
-    const res = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation: transcript, rid: metaRef.current.rid }),
-    });
-    const data = await res.json();
-    setAnalysis(data.analysis || null);
-
-    // 🚀 Auto-redirect to Qualtrics with all values
-    if (data.redirect) {
-      window.location.href = data.redirect;
-      return;
+  async function runAnalysis(messagesOverride) {
+    const arr = messagesOverride || messages;
+    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation: transcript }),
+      });
+      const data = await res.json();
+      setAnalysis(data);
+      return data; // ✅ Return for redirect use
+    } catch {
+      setAnalysis({ error: "Analysis failed." });
+      return null;
+    } finally {
+      setLoading(false);
     }
-  } catch {
-    setAnalysis({ error: "Analysis failed." });
   }
-  setLoading(false);
-}
-
 
   // --- 📈 Chart data ---
   const getIndexData = (analysis) => {
@@ -233,7 +270,9 @@ async function runAnalysis(messagesOverride) {
             {analysis.notes || "No qualitative summary available."}
           </p>
           <details className="mt-3">
-            <summary className="cursor-pointer text-gray-500 text-xs">Show raw data</summary>
+            <summary className="cursor-pointer text-gray-500 text-xs">
+              Show raw data
+            </summary>
             <pre className="mt-2 text-xs bg-white border border-gray-200 p-2 rounded">
               {JSON.stringify(analysis, null, 2)}
             </pre>
