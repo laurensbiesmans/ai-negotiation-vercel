@@ -123,23 +123,30 @@ export default function Page() {
   }
 
   // --- 📊 Run analysis (AI evaluation) ---
-  async function runAnalysis(messagesOverride) {
-    const arr = messagesOverride || messages;
-    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation: transcript }),
-      });
-      const data = await res.json();
-      setAnalysis(data);
-    } catch {
-      setAnalysis({ error: "Analysis failed." });
+async function runAnalysis(messagesOverride) {
+  const arr = messagesOverride || messages;
+  const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
+  setLoading(true);
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation: transcript, rid: metaRef.current.rid }),
+    });
+    const data = await res.json();
+    setAnalysis(data.analysis || null);
+
+    // 🚀 Auto-redirect to Qualtrics with all values
+    if (data.redirect) {
+      window.location.href = data.redirect;
+      return;
     }
-    setLoading(false);
+  } catch {
+    setAnalysis({ error: "Analysis failed." });
   }
+  setLoading(false);
+}
+
 
   // --- 📈 Chart data ---
   const getIndexData = (analysis) => {
