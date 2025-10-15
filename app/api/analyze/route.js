@@ -48,7 +48,7 @@ low concern about one’s own and other’s outcomes.
 
 Return STRICT JSON in this format:
 {
-  "Competition": {
+  "Competing": {
     "comp_threat": number,
     "comp_record": number,
     "comp_value": number,
@@ -57,7 +57,7 @@ Return STRICT JSON in this format:
     "comp_market": number,
     "comp_index": number
   },
-  "Collaboratiing": {
+  "Collaborating": {
     "collab_joint": number,
     "collab_integrate": number,
     "collab_work": number,
@@ -67,20 +67,20 @@ Return STRICT JSON in this format:
     "collab_understand": number,
     "collab_index": number
   },
-  "Compromise": {
+  "Compromising": {
     "compr_middle1": number,
     "compr_middle2": number,
     "compr_give": number,
     "compr_index": number
   },
-  "Accommodation": {
+  "Accommodating": {
     "accom_concede": number,
     "accom_givein": number,
     "accom_wish": number,
     "accom_accept": number,
     "accom_index": number
   },
-  "Avoidance": {
+  "Avoiding": {
     "avoid_negotiate": number,
     "avoid_index": number
   },
