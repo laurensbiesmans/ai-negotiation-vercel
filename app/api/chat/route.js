@@ -27,12 +27,14 @@ export default function Page() {
 
   const negStateRef = useRef({});
   const metaRef = useRef({ rid: null, cond: null });
-
-  // Scroll to bottom
   const bottomRef = useRef(null);
-  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
 
-  // Read URL params
+  // Auto-scroll
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // URL params (Qualtrics)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const p = new URLSearchParams(window.location.search);
@@ -44,6 +46,7 @@ export default function Page() {
   function normalize(s) {
     return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
   }
+
   function detectAgreement(text) {
     const t = normalize(text);
     const keywords = [
@@ -71,6 +74,7 @@ export default function Page() {
       "looking forward to joining",
     ];
     if (keywords.some((k) => t.includes(k))) return true;
+
     const patterns = [
       /\bi accept( the)? offer\b/,
       /\boffer (is )?accepted\b/,
@@ -107,6 +111,7 @@ export default function Page() {
 
       const data = await res.json();
       const hrText = data?.message || data?.reply || data?.error || "No response.";
+
       const afterAssistant = [...newMessages, { role: "assistant", content: hrText }];
       setMessages(afterAssistant);
 
@@ -128,6 +133,7 @@ export default function Page() {
     const arr = messagesOverride || messages;
     const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
     setLoading(true);
+
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -139,6 +145,7 @@ export default function Page() {
     } catch {
       setAnalysis({ error: "Analysis failed." });
     }
+
     setLoading(false);
   }
 
@@ -160,7 +167,7 @@ export default function Page() {
     }
   }, [messages]);
 
-  // --- VISUALIZATION ---
+  // --- VISUALIZATION DATA ---
   const getIndexData = (analysis) => {
     if (!analysis) return [];
     return [
@@ -172,9 +179,10 @@ export default function Page() {
     ];
   };
 
+  // --- RENDER ---
   return (
     <div className="relative bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
-      {/* Chat area */}
+      {/* Chat Area */}
       <div className="flex flex-col p-4 space-y-2 max-h-[60vh] overflow-y-auto">
         {messages.map((m, i) => (
           <div
@@ -196,7 +204,7 @@ export default function Page() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
+      {/* Input Bar */}
       <form
         onSubmit={sendMessage}
         className="flex items-center gap-2 border-t border-gray-200 p-3 bg-gray-50"
@@ -227,7 +235,7 @@ export default function Page() {
         </button>
       </form>
 
-      {/* Analysis output */}
+      {/* Analysis Section */}
       {analysis && (
         <div className="p-4 bg-gray-50 border-t border-gray-200 text-sm">
           <h2 className="text-base font-semibold mb-2">Negotiation Style Profile</h2>
@@ -245,6 +253,7 @@ export default function Page() {
           <p className="mt-3 text-gray-600 italic">
             {analysis.notes || "No qualitative summary available."}
           </p>
+
           <details className="mt-3">
             <summary className="cursor-pointer text-gray-500 text-xs">
               Show raw data
@@ -256,7 +265,7 @@ export default function Page() {
         </div>
       )}
 
-      {/* Overlay (no opacity anymore) */}
+      {/* Chat Closed Overlay (no opacity) */}
       {chatClosed && (
         <div className="absolute inset-0 bg-white flex items-center justify-center text-lg font-semibold text-gray-700">
           💬 Chat closed — thank you for participating!
