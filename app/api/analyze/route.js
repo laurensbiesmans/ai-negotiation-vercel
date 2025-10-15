@@ -10,44 +10,17 @@ Use the conversation to rate the candidate on the following five conflict-handli
 For each item, assign a score from 1 (strongly disagree) to 7 (strongly agree)
 based solely on observable negotiation behavior (what the candidate says/does).
 
-Definitions of the five dimensions, from Marks & Harold (2011):
-[Collaborating]
-This strategy has also been referred to as integrating or problem solving. Relative to the dual concerns
-model, this strategy represents a high concern for attaining one’s own outcomes as well as a high
-concern for whether the other party attains their desired outcomes. A collaborative strategy is
-represented by a desire to exchange meaningful and accurate information in order to reach an
-agreement that is best for all parties involved. There is an emphasis on discovery of the basic interests of
-those involved in the negotiation, in order to craft a solution that meets both parties’ interests. This
-strategy is especially appropriate when there is value to synthesizing ideas to develop better solutions,
-when time is available for negotiation, and when both parties have an investment in the outcomes
-(Lewicki et al., 2004).
-
-[Competing]
-Also called contending or dominating, the competing strategy represents a greater concern for one’s
-own outcomes and a lower concern for other’s outcomes. Tactics utilized in a competing strategy can
-include persuading, threatening, misrepresenting, and asserting.
-
-[Accommodating]
-Also referred to as obliging or yielding, an accommodating strategy to negotiation represents high
-concern for others and low concerns about one’s own outcomes. Negotiators pursuing an
-accommodating strategy are more interested in having others attain their desired outcomes. While
-this strategy has disadvantages when one is trying to reach agreement on issues that are important, this
-strategy may be appropriate in situations where one’s focus is on the longer term relationship or one is
-negotiating from a position of limited power.
-
-[Compromising]
-Compromising involves some level of concern for one’s own outcomes and some level for others’
-outcomes. The use of a compromise strategy would include the use of a give-and-take approach with a
-desire to reach an acceptable middle ground.
-
-[Avoiding]
-This approach involves dodging situations that would involve negotiation. While there are situations
-where an ‘‘avoid’’ approach would be effective, often in salary negotiations an avoid approach ‘‘leaves
-money on the table.’’ The dual concerns model considers the avoiding strategy as one that represents
-low concern about one’s own and other’s outcomes.
+Definitions of the five dimensions (summarized):
+- Collaboration: joint problem solving, open exchange of information, mutual benefit.
+- Competition: self-assertive, persuasive, sometimes aggressive tactics.
+- Compromise: give-and-take, finding a middle ground.
+- Accommodation: yielding, prioritizing the other's wishes.
+- Avoidance: reluctance to engage in negotiation or decision.
 
 Return STRICT JSON in this format:
 {
+  "salary": number,
+  "agreement": "yes" | "no",
   "Competition": {
     "persuade_with_threats": number,
     "present_qualifications": number,
@@ -81,49 +54,18 @@ Return STRICT JSON in this format:
     "accom_index": number
   },
   "Avoidance": {
-    "avoid_negotiating": number
+    "avoid_negotiating": number,
+    "avoid_index": number
   },
   "notes": "concise qualitative summary (1–2 sentences)"
 }
 
-Here are the item definitions to rate:
-
-[Competition Scale]
-1. persuade_with_threats – Persuade the organization by threatening to withdraw.
-2. present_qualifications – Present past record and qualifications to improve the offer.
-3. communicate_value – Emphasize value and benefits to influence the offer.
-4. persistent_no – Do not take "no" for an answer.
-5. express_unreasonableness – Express when an offer feels unreasonable.
-6. present_market_value – Provide market value information of the position.
-
-[Collaboration Scale]
-1. mutual_acceptability – Seek an offer acceptable to both sides.
-2. integrate_interests – Integrate own and organizational interests.
-3. joint_offer – Work together to find a mutually acceptable offer.
-4. accurate_information – Exchange accurate information to reach agreement.
-5. open_concerns – Bring all concerns into the open for resolution.
-6. collaborate_offer – Collaborate to create acceptable offer.
-7. understand_position – Seek understanding of organization’s position.
-
-[Compromise Scale]
-1. find_middle_ground – Try to find a middle ground.
-2. propose_middle_ground – Propose compromise solution.
-3. give_and_take – Engage in give-and-take to resolve issues.
-
-[Accommodation Scale]
-1. give_in_to_demands – Give in to organizational demands.
-2. allow_concessions – Allow more concessions than the organization.
-3. accommodate_wishes – Accommodate the organization’s wishes.
-4. go_along_offer – Go along with the initial offer.
-
-[Avoidance Scale]
-1. avoid_negotiating – Avoid negotiating after receiving an offer.
-
 Rules:
-- Base ratings only on the candidate’s language, tone, persistence, concessions, and self-advocacy.
-- If insufficient data, use midpoint (4).
-- Calculate each *_index as the mean of its items.
-- Output valid JSON only.
+- Estimate "salary" from the final negotiated amount if mentioned (numbers with € or similar).
+- Set "agreement" = "yes" if the conversation ends with clear mutual acceptance; otherwise "no".
+- If data are missing, use midpoint (4).
+- Compute each *_index as the mean of its items.
+- Return valid JSON only.
 `;
 
 export async function POST(req) {
@@ -149,18 +91,21 @@ export async function POST(req) {
     const raw = completion.choices?.[0]?.message?.content || "{}";
     const analysis = JSON.parse(raw);
 
-    // 🔢 Extract safe values for redirect (flatten & encode)
+    // Extract safely
     const salary = analysis.salary || "";
+    const agreement = analysis.agreement || "no";
     const c = analysis.Competition || {};
     const l = analysis.Collaboration || {};
     const p = analysis.Compromise || {};
     const a = analysis.Accommodation || {};
     const v = analysis.Avoidance || {};
 
-    // Build URL parameters
+    // Build Qualtrics redirect parameters
     const params = new URLSearchParams({
       rid: rid || "",
       salary,
+      agreement,
+      // Competition
       persuade_with_threats: c.persuade_with_threats || "",
       present_qualifications: c.present_qualifications || "",
       communicate_value: c.communicate_value || "",
@@ -168,6 +113,7 @@ export async function POST(req) {
       express_unreasonableness: c.express_unreasonableness || "",
       present_market_value: c.present_market_value || "",
       comp_index: c.comp_index || "",
+      // Collaboration
       mutual_acceptability: l.mutual_acceptability || "",
       integrate_interests: l.integrate_interests || "",
       joint_offer: l.joint_offer || "",
@@ -176,23 +122,27 @@ export async function POST(req) {
       collaborate_offer: l.collaborate_offer || "",
       understand_position: l.understand_position || "",
       collab_index: l.collab_index || "",
+      // Compromise
       find_middle_ground: p.find_middle_ground || "",
       propose_middle_ground: p.propose_middle_ground || "",
       give_and_take: p.give_and_take || "",
       compr_index: p.compr_index || "",
+      // Accommodation
       give_in_to_demands: a.give_in_to_demands || "",
       allow_concessions: a.allow_concessions || "",
       accommodate_wishes: a.accommodate_wishes || "",
       go_along_offer: a.go_along_offer || "",
       accom_index: a.accom_index || "",
+      // Avoidance
       avoid_negotiating: v.avoid_negotiating || "",
+      avoid_index: v.avoid_index || "",
     });
 
-    // 🔁 Build the Qualtrics redirect URL
-    const qualtricsBase = "https://feb.qualtrics.com/jfe/form/SV_3k1cnUM6cqEVGL4";
-    const redirectUrl = `${qualtricsBase}?${params.toString()}`;
+    // Redirect to Qualtrics continuation (change QID if needed)
+    const qualtricsBase =
+      "https://feb.qualtrics.com/jfe/form/SV_3k1cnUM6cqEVGL4?Q_JUMP_TO=QID12"; // 👈 replace QID12 with the next question
+    const redirectUrl = `${qualtricsBase}&${params.toString()}`;
 
-    // Return JSON to frontend (optional — for debugging)
     return new Response(
       JSON.stringify({
         status: "ok",
@@ -202,7 +152,7 @@ export async function POST(req) {
       { headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error(error);
+    console.error("❌ Analyze route error:", error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }
