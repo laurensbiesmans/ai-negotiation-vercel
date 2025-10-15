@@ -41,36 +41,59 @@ export default function Page() {
     metaRef.current.cond = p.get("cond") || null;
   }, []);
 
-  // --- Agreement detection helper ---
+  // --- 🧠 Smart agreement detection ---
   function normalize(text) {
-    return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim();
+    return text.toLowerCase().replace(/[.,!?'"-]/g, " ").replace(/\s+/g, " ").trim();
   }
 
   function detectAgreement(text) {
     const t = normalize(text);
-    const keywords = [
-      "we have a deal",
-      "offer accepted",
-      "i accept",
-      "accepted the offer",
-      "welcome aboard",
-      "congratulations",
-      "agreed on",
-      "sounds good to me",
-      "happy to join",
-      "that works for me",
-      "i'll take it",
-      "deal",
-      "agreement",
-      "i accept your offer",
+    const patterns = [
+      /\bwe have a deal\b/,
+      /\bit'?s a deal\b/,
+      /\bdeal\b/,
+      /\boffer accepted\b/,
+      /\bi accept\b/,
+      /\bi accept your offer\b/,
+      /\baccepted the offer\b/,
+      /\baccept the offer\b/,
+      /\bwelcome aboard\b/,
+      /\bwelcome to the team\b/,
+      /\bcongratulations\b/,
+      /\bagreed\b/,
+      /\bagreed on\b/,
+      /\bsounds good\b/,
+      /\bsounds good to me\b/,
+      /\bsounds fair\b/,
+      /\bthat works for me\b/,
+      /\bthis looks good\b/,
+      /\boffer sounds good\b/,
+      /\bi am satisfied\b/,
+      /\bhappy to join\b/,
+      /\bi'?ll take it\b/,
+      /\blooking forward to joining\b/,
+      /\bdeal reached\b/,
     ];
-    return keywords.some((k) => t.includes(k));
+    return patterns.some((re) => re.test(t));
   }
 
   // --- Send message handler ---
   async function sendMessage(e) {
     e?.preventDefault?.();
     if (!input.trim() || inputDisabled) return;
+
+    // 🟢 Check if the participant already signals agreement
+    if (detectAgreement(input)) {
+      setInputDisabled(true);
+      const updated = [
+        ...messages,
+        { role: "user", content: input },
+        { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
+      ];
+      setMessages(updated);
+      await runAnalysis(updated);
+      return;
+    }
 
     const newMessages = [...messages, { role: "user", content: input }];
     setMessages(newMessages);
@@ -101,7 +124,7 @@ export default function Page() {
         negStateRef.current = data.state;
       }
 
-      // Detect agreement automatically
+      // 🧠 Detect agreement automatically in HR message
       if (detectAgreement(hrText)) {
         setInputDisabled(true);
         const doneMessages = [
@@ -109,8 +132,6 @@ export default function Page() {
           { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
         ];
         setMessages(doneMessages);
-
-        // Run automatic analysis right after
         await runAnalysis(doneMessages);
         return;
       }
@@ -199,7 +220,7 @@ export default function Page() {
         </button>
         <button
           type="button"
-          onClick={runAnalysis}
+          onClick={() => runAnalysis()}
           disabled={loading}
           className="px-4 py-2 bg-gray-800 text-white rounded-full text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
         >
