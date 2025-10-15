@@ -128,11 +128,10 @@ Rules:
 
 export async function POST(req) {
   try {
-    const { conversation } = await req.json();
+    const { conversation, rid } = await req.json();
+
     if (!process.env.OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), {
-        status: 500,
-      });
+      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), { status: 500 });
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -148,52 +147,62 @@ export async function POST(req) {
     });
 
     const raw = completion.choices?.[0]?.message?.content || "{}";
-    const parsed = JSON.parse(raw);
+    const analysis = JSON.parse(raw);
 
-    // ✅ Ensure index fields exist even if AI forgets them
-    function computeIndex(obj, keys, targetKey) {
-      const values = keys.map((k) => obj[k]).filter((v) => typeof v === "number");
-      obj[targetKey] = values.length ? +(values.reduce((a, b) => a + b, 0) / values.length).toFixed(2) : 0;
-    }
+    // 🔢 Extract safe values for redirect (flatten & encode)
+    const salary = analysis.salary || "";
+    const c = analysis.Competition || {};
+    const l = analysis.Collaboration || {};
+    const p = analysis.Compromise || {};
+    const a = analysis.Accommodation || {};
+    const v = analysis.Avoidance || {};
 
-    computeIndex(parsed.Competition, [
-      "persuade_with_threats",
-      "present_qualifications",
-      "communicate_value",
-      "persistent_no",
-      "express_unreasonableness",
-      "present_market_value",
-    ], "comp_index");
-
-    computeIndex(parsed.Collaboration, [
-      "mutual_acceptability",
-      "integrate_interests",
-      "joint_offer",
-      "accurate_information",
-      "open_concerns",
-      "collaborate_offer",
-      "understand_position",
-    ], "collab_index");
-
-    computeIndex(parsed.Compromise, [
-      "find_middle_ground",
-      "propose_middle_ground",
-      "give_and_take",
-    ], "compr_index");
-
-    computeIndex(parsed.Accommodation, [
-      "give_in_to_demands",
-      "allow_concessions",
-      "accommodate_wishes",
-      "go_along_offer",
-    ], "accom_index");
-
-    computeIndex(parsed.Avoidance, ["avoid_negotiating"], "avoid_index");
-
-    return new Response(JSON.stringify(parsed), {
-      headers: { "Content-Type": "application/json" },
+    // Build URL parameters
+    const params = new URLSearchParams({
+      rid: rid || "",
+      salary,
+      persuade_with_threats: c.persuade_with_threats || "",
+      present_qualifications: c.present_qualifications || "",
+      communicate_value: c.communicate_value || "",
+      persistent_no: c.persistent_no || "",
+      express_unreasonableness: c.express_unreasonableness || "",
+      present_market_value: c.present_market_value || "",
+      comp_index: c.comp_index || "",
+      mutual_acceptability: l.mutual_acceptability || "",
+      integrate_interests: l.integrate_interests || "",
+      joint_offer: l.joint_offer || "",
+      accurate_information: l.accurate_information || "",
+      open_concerns: l.open_concerns || "",
+      collaborate_offer: l.collaborate_offer || "",
+      understand_position: l.understand_position || "",
+      collab_index: l.collab_index || "",
+      find_middle_ground: p.find_middle_ground || "",
+      propose_middle_ground: p.propose_middle_ground || "",
+      give_and_take: p.give_and_take || "",
+      compr_index: p.compr_index || "",
+      give_in_to_demands: a.give_in_to_demands || "",
+      allow_concessions: a.allow_concessions || "",
+      accommodate_wishes: a.accommodate_wishes || "",
+      go_along_offer: a.go_along_offer || "",
+      accom_index: a.accom_index || "",
+      avoid_negotiating: v.avoid_negotiating || "",
     });
+
+    // 🔁 Build the Qualtrics redirect URL
+    const qualtricsBase = "https://feb.qualtrics.com/jfe/form/SV_3k1cnUM6cqEVGL4";
+    const redirectUrl = `${qualtricsBase}?${params.toString()}`;
+
+    // Return JSON to frontend (optional — for debugging)
+    return new Response(
+      JSON.stringify({
+        status: "ok",
+        redirect: redirectUrl,
+        analysis,
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
+    console.error(error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }
