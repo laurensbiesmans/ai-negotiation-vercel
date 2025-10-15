@@ -149,7 +149,8 @@ export default function Page() {
         });
 
         // ✅ Uncomment next line when you want Qualtrics redirect to activate
-       window.location.href = `${baseQualtrics}?${params.toString()}`;
+       window.top.location.href = `${baseQualtrics}?${params.toString()}`;
+
 
         return;
       }
