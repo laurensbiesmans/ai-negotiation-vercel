@@ -48,94 +48,98 @@ low concern about one’s own and other’s outcomes.
 
 Return STRICT JSON in this format:
 {
-  "Competing": {
-    "comp_threat": number,
-    "comp_record": number,
-    "comp_value": number,
-    "comp_persist": number,
-    "comp_feelings": number,
-    "comp_market": number,
+  "Competition": {
+    "persuade_with_threats": number,
+    "present_qualifications": number,
+    "communicate_value": number,
+    "persistent_no": number,
+    "express_unreasonableness": number,
+    "present_market_value": number,
     "comp_index": number
   },
-  "Collaborating": {
-    "collab_joint": number,
-    "collab_integrate": number,
-    "collab_work": number,
-    "collab_info": number,
-    "collab_concerns": number,
-    "collab_cooperate": number,
-    "collab_understand": number,
+  "Collaboration": {
+    "mutual_acceptability": number,
+    "integrate_interests": number,
+    "joint_offer": number,
+    "accurate_information": number,
+    "open_concerns": number,
+    "collaborate_offer": number,
+    "understand_position": number,
     "collab_index": number
   },
-  "Compromising": {
-    "compr_middle1": number,
-    "compr_middle2": number,
-    "compr_give": number,
+  "Compromise": {
+    "find_middle_ground": number,
+    "propose_middle_ground": number,
+    "give_and_take": number,
     "compr_index": number
   },
-  "Accommodating": {
-    "accom_concede": number,
-    "accom_givein": number,
-    "accom_wish": number,
-    "accom_accept": number,
+  "Accommodation": {
+    "give_in_to_demands": number,
+    "allow_concessions": number,
+    "accommodate_wishes": number,
+    "go_along_offer": number,
     "accom_index": number
   },
-  "Avoiding": {
-    "avoid_negotiate": number,
-    "avoid_index": number
+  "Avoidance": {
+    "avoid_negotiating": number
   },
-  "notes": "concise qualitative summary (1-2 sentences)"
+  "notes": "concise qualitative summary (1–2 sentences)"
 }
 
-Here are the item statements to rate:
+Here are the item definitions to rate:
 
 [Competition Scale]
-comp_threat — I try to persuade the organization to better my offer by threatening to withdraw from the process.
-comp_record — I present information about my past record and qualifications to improve the quality of the offer extended to me.
-comp_value — I make clear the value and benefit I could bring to the organization, in an attempt to influence the process.
-comp_persist — While negotiating, I do not take “no” for an answer.
-comp_feelings — If I feel that the organization's offer is unreasonable, I make sure to make my feelings known.
-comp_market — I present information about the market value of the position for which I was hired.
+1. persuade_with_threats – Persuade the organization by threatening to withdraw.
+2. present_qualifications – Present past record and qualifications to improve the offer.
+3. communicate_value – Emphasize value and benefits to influence the offer.
+4. persistent_no – Do not take "no" for an answer.
+5. express_unreasonableness – Express when an offer feels unreasonable.
+6. present_market_value – Provide market value information of the position.
 
 [Collaboration Scale]
-collab_joint — I try to negotiate an offer that is acceptable to both me and the organization.
-collab_integrate — I try to integrate my interests with those of the organization to come up with an offer supported by both sides.
-collab_work — I try to work together with the organization to come up with an acceptable offer.
-collab_info — I exchange accurate information with the organization to come to a joint agreement.
-collab_concerns — I try to bring all of our concerns out in the open so that the issues can be resolved in the best possible way.
-collab_cooperate — I collaborate with the organization to come up with an offer acceptable to both of us.
-collab_understand — I try to work with the organization to gain a thorough understanding of their position.
+1. mutual_acceptability – Seek an offer acceptable to both sides.
+2. integrate_interests – Integrate own and organizational interests.
+3. joint_offer – Work together to find a mutually acceptable offer.
+4. accurate_information – Exchange accurate information to reach agreement.
+5. open_concerns – Bring all concerns into the open for resolution.
+6. collaborate_offer – Collaborate to create acceptable offer.
+7. understand_position – Seek understanding of organization’s position.
 
 [Compromise Scale]
-compr_middle1 — I try to find a middle ground to reach an acceptable offer.
-compr_middle2 — I propose a middle ground to resolve the differences between our two sides.
-compr_give — I tend to “give and take” so that compromise can be made.
+1. find_middle_ground – Try to find a middle ground.
+2. propose_middle_ground – Propose compromise solution.
+3. give_and_take – Engage in give-and-take to resolve issues.
 
 [Accommodation Scale]
-accom_concede — I initiate job negotiations, but I tend to give in to the demands of the organization.
-accom_givein — To reach an agreement, I tend to allow more concessions than the organization.
-accom_wish — I tend to feel myself trying to accommodate the wishes of the organization.
-accom_accept — Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered.
+1. give_in_to_demands – Give in to organizational demands.
+2. allow_concessions – Allow more concessions than the organization.
+3. accommodate_wishes – Accommodate the organization’s wishes.
+4. go_along_offer – Go along with the initial offer.
 
 [Avoidance Scale]
-avoid_negotiate — After receiving a job offer, I avoid negotiating the terms of the offer.
+1. avoid_negotiating – Avoid negotiating after receiving an offer.
 
 Rules:
-- Base ratings only on candidate’s language, tone, persistence, concessions, and self-advocacy.
-- If insufficient data, give a midpoint (4).
-- Output valid JSON, no extra text.
+- Base ratings only on the candidate’s language, tone, persistence, concessions, and self-advocacy.
+- If insufficient data, use midpoint (4).
+- Calculate each *_index as the mean of its items.
+- Output valid JSON only.
 `;
+
 export async function POST(req) {
   try {
     const { conversation } = await req.json();
     if (!process.env.OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), { status: 500 });
+      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), {
+        status: 500,
+      });
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
     const completion = await client.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.1,
+      temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: ANALYZE_PROMPT },
@@ -144,7 +148,51 @@ export async function POST(req) {
     });
 
     const raw = completion.choices?.[0]?.message?.content || "{}";
-    return new Response(raw, { headers: { "Content-Type": "application/json" } });
+    const parsed = JSON.parse(raw);
+
+    // ✅ Ensure index fields exist even if AI forgets them
+    function computeIndex(obj, keys, targetKey) {
+      const values = keys.map((k) => obj[k]).filter((v) => typeof v === "number");
+      obj[targetKey] = values.length ? +(values.reduce((a, b) => a + b, 0) / values.length).toFixed(2) : 0;
+    }
+
+    computeIndex(parsed.Competition, [
+      "persuade_with_threats",
+      "present_qualifications",
+      "communicate_value",
+      "persistent_no",
+      "express_unreasonableness",
+      "present_market_value",
+    ], "comp_index");
+
+    computeIndex(parsed.Collaboration, [
+      "mutual_acceptability",
+      "integrate_interests",
+      "joint_offer",
+      "accurate_information",
+      "open_concerns",
+      "collaborate_offer",
+      "understand_position",
+    ], "collab_index");
+
+    computeIndex(parsed.Compromise, [
+      "find_middle_ground",
+      "propose_middle_ground",
+      "give_and_take",
+    ], "compr_index");
+
+    computeIndex(parsed.Accommodation, [
+      "give_in_to_demands",
+      "allow_concessions",
+      "accommodate_wishes",
+      "go_along_offer",
+    ], "accom_index");
+
+    computeIndex(parsed.Avoidance, ["avoid_negotiating"], "avoid_index");
+
+    return new Response(JSON.stringify(parsed), {
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
