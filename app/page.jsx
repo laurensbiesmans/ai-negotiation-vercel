@@ -11,7 +11,6 @@ import {
 } from "recharts";
 
 export default function Page() {
-  // Visible chat transcript
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -28,14 +27,12 @@ export default function Page() {
 
   const negStateRef = useRef({});
   const metaRef = useRef({ rid: null, cond: null });
-
-  // Scroll to bottom on new message
   const bottomRef = useRef(null);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Read URL params (Qualtrics)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const p = new URLSearchParams(window.location.search);
@@ -43,13 +40,13 @@ export default function Page() {
     metaRef.current.cond = p.get("cond") || null;
   }, []);
 
-  // --- 🧠 ROBUST AGREEMENT DETECTION ---
+  // AGREEMENT DETECTION
   function normalize(s) {
     return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
   }
+
   function detectAgreement(text) {
     const t = normalize(text);
-
     const keywords = [
       "we have a deal",
       "welcome to the team",
@@ -74,9 +71,7 @@ export default function Page() {
       "happy to join",
       "looking forward to joining",
     ];
-    const hasKeyword = keywords.some((k) => t.includes(k));
-    if (hasKeyword) return true;
-
+    if (keywords.some((k) => t.includes(k))) return true;
     const patterns = [
       /\bi accept( the)? offer\b/,
       /\boffer (is )?accepted\b/,
@@ -89,7 +84,7 @@ export default function Page() {
     return patterns.some((rx) => rx.test(t));
   }
 
-  // --- 💬 SEND MESSAGE FUNCTION ---
+  // SEND MESSAGE
   async function sendMessage(e) {
     e?.preventDefault?.();
     if (!input.trim() || inputDisabled) return;
@@ -113,12 +108,9 @@ export default function Page() {
 
       const data = await res.json();
       const hrText = data?.message || data?.reply || data?.error || "No response.";
-
-      // Add HR message
       const afterAssistant = [...newMessages, { role: "assistant", content: hrText }];
       setMessages(afterAssistant);
 
-      // Keep internal state
       if (data?.state && typeof data.state === "object") {
         negStateRef.current = data.state;
       }
@@ -132,7 +124,7 @@ export default function Page() {
     setLoading(false);
   }
 
-  // --- 📊 RUN ANALYSIS FUNCTION ---
+  // RUN ANALYSIS
   async function runAnalysis(messagesOverride) {
     const arr = messagesOverride || messages;
     const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
@@ -151,4 +143,121 @@ export default function Page() {
     setLoading(false);
   }
 
-  // --
+  // AUTO STOP
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role === "assistant" && detectAgreement(last.content)) {
+      setInputDisabled(true);
+      const withSystem = [
+        ...messages,
+        { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
+      ];
+      setMessages(withSystem);
+      setTimeout(() => {
+        runAnalysis(withSystem);
+        setChatClosed(true);
+      }, 0);
+    }
+  }, [messages]);
+
+  // VISUALIZATION DATA
+  const getIndexData = (analysis) => {
+    if (!analysis) return [];
+    return [
+      { name: "Competition", score: analysis.Competition?.comp_index || 0 },
+      { name: "Collaboration", score: analysis.Collaboration?.collab_index || 0 },
+      { name: "Compromise", score: analysis.Compromise?.compr_index || 0 },
+      { name: "Accommodation", score: analysis.Accommodation?.accom_index || 0 },
+      { name: "Avoidance", score: analysis.Avoidance?.avoid_index || 0 },
+    ];
+  };
+
+  // RENDER
+  return (
+    <div className="relative bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
+      {/* Chat Area */}
+      <div className="flex flex-col p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+        {messages.map((m, i) => (
+          <div
+            key={i}
+            className={`rounded-2xl px-4 py-2 shadow max-w-[80%] text-sm ${
+              m.role === "assistant"
+                ? "bg-gray-200 text-gray-800 self-start rounded-bl-none"
+                : m.role === "system"
+                ? "bg-green-100 text-green-800 self-center text-center"
+                : "bg-blue-600 text-white self-end rounded-br-none"
+            }`}
+          >
+            {m.content}
+          </div>
+        ))}
+        {loading && <div className="text-center text-gray-400 text-sm italic">Thinking...</div>}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input Bar */}
+      <form
+        onSubmit={sendMessage}
+        className="flex items-center gap-2 border-t border-gray-200 p-3 bg-gray-50"
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={inputDisabled ? "Negotiation concluded." : "Type your message..."}
+          disabled={loading || inputDisabled}
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100"
+        />
+        <button
+          type="submit"
+          disabled={loading || inputDisabled}
+          className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+        >
+          Send
+        </button>
+        <button
+          type="button"
+          onClick={() => runAnalysis()}
+          disabled={loading}
+          className="px-4 py-2 bg-gray-800 text-white rounded-full text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
+        >
+          Analyze
+        </button>
+      </form>
+
+      {/* Analysis Section */}
+      {analysis && (
+        <div className="p-4 bg-gray-50 border-t border-gray-200 text-sm">
+          <h2 className="text-base font-semibold mb-2">Negotiation Style Profile</h2>
+          <div className="w-full h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={getIndexData(analysis)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis domain={[1, 7]} />
+                <Tooltip />
+                <Bar dataKey="score" fill="#2563eb" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-3 text-gray-600 italic">
+            {analysis.notes || "No qualitative summary available."}
+          </p>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-gray-500 text-xs">Show raw data</summary>
+            <pre className="mt-2 text-xs bg-white border border-gray-200 p-2 rounded">
+              {JSON.stringify(analysis, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+
+      {/* Chat Closed Overlay */}
+      {chatClosed && (
+        <div className="absolute inset-0 bg-white flex items-center justify-center text-lg font-semibold text-gray-700">
+          💬 Chat closed — thank you for participating!
+        </div>
+      )}
+    </div>
+  );
+}
