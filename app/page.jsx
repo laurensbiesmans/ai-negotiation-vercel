@@ -41,59 +41,36 @@ export default function Page() {
     metaRef.current.cond = p.get("cond") || null;
   }, []);
 
-  // --- 🧠 Smart agreement detection ---
+  // --- 🧠 Agreement detection (AI-only phrasing) ---
   function normalize(text) {
     return text.toLowerCase().replace(/[.,!?'"-]/g, " ").replace(/\s+/g, " ").trim();
   }
 
+  // Only detect closure when the AI itself confirms agreement
   function detectAgreement(text) {
     const t = normalize(text);
     const patterns = [
       /\bwe have a deal\b/,
-      /\bit'?s a deal\b/,
-      /\bdeal\b/,
-      /\boffer accepted\b/,
-      /\bi accept\b/,
-      /\bi accept your offer\b/,
-      /\baccepted the offer\b/,
-      /\baccept the offer\b/,
+      /\bcongratulations\b/,
       /\bwelcome aboard\b/,
       /\bwelcome to the team\b/,
-      /\bcongratulations\b/,
-      /\bagreed\b/,
-      /\bagreed on\b/,
-      /\bsounds good\b/,
-      /\bsounds good to me\b/,
-      /\bsounds fair\b/,
-      /\bthat works for me\b/,
-      /\bthis looks good\b/,
-      /\boffer sounds good\b/,
-      /\bi am satisfied\b/,
-      /\bhappy to join\b/,
-      /\bi'?ll take it\b/,
-      /\blooking forward to joining\b/,
-      /\bdeal reached\b/,
+      /\bi'?m glad we could reach an agreement\b/,
+      /\bi'?m happy to confirm our agreement\b/,
+      /\bi'?m pleased to finalize the offer\b/,
+      /\boffer confirmed\b/,
+      /\bthank you for accepting\b/,
+      /\bi'?m looking forward to working together\b/,
+      /\bconsider this offer accepted\b/,
+      /\bthe agreement is complete\b/,
+      /\bwe'?re excited to have you join\b/,
     ];
     return patterns.some((re) => re.test(t));
   }
 
-  // --- Send message handler ---
+  // --- 💬 Send message handler ---
   async function sendMessage(e) {
     e?.preventDefault?.();
     if (!input.trim() || inputDisabled) return;
-
-    // 🟢 Check if the participant already signals agreement
-    if (detectAgreement(input)) {
-      setInputDisabled(true);
-      const updated = [
-        ...messages,
-        { role: "user", content: input },
-        { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
-      ];
-      setMessages(updated);
-      await runAnalysis(updated);
-      return;
-    }
 
     const newMessages = [...messages, { role: "user", content: input }];
     setMessages(newMessages);
@@ -124,7 +101,7 @@ export default function Page() {
         negStateRef.current = data.state;
       }
 
-      // 🧠 Detect agreement automatically in HR message
+      // 🧠 Detect AI agreement ONLY when HR speaks
       if (detectAgreement(hrText)) {
         setInputDisabled(true);
         const doneMessages = [
@@ -145,7 +122,7 @@ export default function Page() {
     setLoading(false);
   }
 
-  // --- Run analysis (AI evaluation) ---
+  // --- 📊 Run analysis (AI evaluation) ---
   async function runAnalysis(messagesOverride) {
     const arr = messagesOverride || messages;
     const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
@@ -164,7 +141,7 @@ export default function Page() {
     setLoading(false);
   }
 
-  // --- Chart data ---
+  // --- 📈 Chart data ---
   const getIndexData = (analysis) => {
     if (!analysis) return [];
     return [
@@ -176,7 +153,7 @@ export default function Page() {
     ];
   };
 
-  // --- Render UI ---
+  // --- 🧩 Render ---
   return (
     <div className="bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
       {/* 💬 Chat area */}
@@ -195,7 +172,9 @@ export default function Page() {
             {m.content}
           </div>
         ))}
-        {loading && <div className="text-center text-gray-400 text-sm italic">Thinking...</div>}
+        {loading && (
+          <div className="text-center text-gray-400 text-sm italic">Thinking...</div>
+        )}
         <div ref={bottomRef} />
       </div>
 
