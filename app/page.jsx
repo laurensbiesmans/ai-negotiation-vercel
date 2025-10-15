@@ -24,6 +24,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [inputDisabled, setInputDisabled] = useState(false);
+  const [chatClosed, setChatClosed] = useState(false); // NEW — for fade-out animation
 
   const negStateRef = useRef({});
   const metaRef = useRef({ rid: null, cond: null });
@@ -42,7 +43,7 @@ export default function Page() {
     metaRef.current.cond = p.get("cond") || null;
   }, []);
 
-  // --- 🧠 IMPROVED AUTO-DETECTION FUNCTION FOR AGREEMENT ---
+  // --- 🧠 AUTO-DETECTION FUNCTION FOR AGREEMENT ---
   function detectAgreement(text) {
     const dealKeywords = [
       "we have a deal",
@@ -102,25 +103,6 @@ export default function Page() {
       if (data?.state && typeof data.state === "object") {
         negStateRef.current = data.state;
       }
-
-      // 🧠 Detect agreement and stop further replies
-      if (detectAgreement(hrText)) {
-        setInputDisabled(true);
-        setMessages((prev) => [
-          ...prev,
-          { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
-        ]);
-
-        // Auto-run analysis after agreement
-        await runAnalysis();
-
-        // Optional redirect to Qualtrics after 4s
-       // setTimeout(() => {
-        //  window.location.href = "https://YOUR-QUALTRICS-LINK.com"; // ← replace this
-     //   }, 4000);
-
-        return;
-      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -149,6 +131,23 @@ export default function Page() {
     setLoading(false);
   }
 
+  // --- 🧩 AUTO STOP when agreement detected in latest assistant message ---
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role === "assistant" && detectAgreement(last.content)) {
+      setInputDisabled(true);
+      setMessages((prev) => [
+        ...prev,
+        { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
+      ]);
+      runAnalysis();
+
+      // ✨ Trigger fade out and overlay after short delay
+      setTimeout(() => setChatClosed(true), 2000);
+    }
+  }, [messages]);
+
   // --- 📈 VISUALIZATION HELPER ---
   const getIndexData = (analysis) => {
     if (!analysis) return [];
@@ -162,7 +161,11 @@ export default function Page() {
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
+    <div
+      className={`relative bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden transition-opacity duration-1000 ${
+        chatClosed ? "opacity-50" : "opacity-100"
+      }`}
+    >
       {/* Chat Area */}
       <div className="flex flex-col p-4 space-y-2 max-h-[60vh] overflow-y-auto">
         {messages.map((m, i) => (
@@ -243,6 +246,13 @@ export default function Page() {
               {JSON.stringify(analysis, null, 2)}
             </pre>
           </details>
+        </div>
+      )}
+
+      {/* ✨ Overlay when chat is closed */}
+      {chatClosed && (
+        <div className="absolute inset-0 bg-white bg-opacity-80 backdrop-blur-sm flex items-center justify-center text-lg font-semibold text-gray-700">
+          💬 Chat closed — thank you for participating!
         </div>
       )}
     </div>
