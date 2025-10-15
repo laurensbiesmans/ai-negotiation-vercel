@@ -1,73 +1,267 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-import OpenAI from "openai";
+"use client";
+import { useEffect, useRef, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
-const HR_SYSTEM_PROMPT = `
-You are an HR compensation manager negotiating salary with a candidate.
-ALWAYS reply as compact JSON:
-{
-  "message": "what HR says to the candidate (1-3 sentences)",
-  "state": {
-    "current_offer_net": number,
-    "concessions_made": number,
-    "stance": "firm|flexible|closing",
-    "reasoning": "short rationale (for logging)"
+export default function Page() {
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      content:
+        "Thank you for joining me in this conversation to discuss your contract as we would like to offer you this job. Based on your relevant experience and match with this role, we would like to offer you a salary of €2500 net per month with standard benefits, such as 20 days paid leave, hospitalisation, and meal vouchers. How would you like to respond?",
+    },
+  ]);
+
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [inputDisabled, setInputDisabled] = useState(false);
+  const [chatClosed, setChatClosed] = useState(false);
+
+  const negStateRef = useRef({});
+  const metaRef = useRef({ rid: null, cond: null });
+
+  // Scroll to bottom
+  const bottomRef = useRef(null);
+  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
+
+  // Read URL params
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const p = new URLSearchParams(window.location.search);
+    metaRef.current.rid = p.get("rid") || null;
+    metaRef.current.cond = p.get("cond") || null;
+  }, []);
+
+  // --- AGREEMENT DETECTION ---
+  function normalize(s) {
+    return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
   }
-}
+  function detectAgreement(text) {
+    const t = normalize(text);
+    const keywords = [
+      "we have a deal",
+      "welcome to the team",
+      "deal",
+      "agreement",
+      "offer accepted",
+      "accept the offer",
+      "i accept",
+      "accepted",
+      "welcome aboard",
+      "congratulations",
+      "agreed on",
+      "i m happy to confirm",
+      "sounds fair",
+      "that works for me",
+      "this looks good",
+      "offer sounds good",
+      "i m satisfied",
+      "i ll take it",
+      "i accept your offer",
+      "sounds good to me",
+      "happy to join",
+      "looking forward to joining",
+    ];
+    if (keywords.some((k) => t.includes(k))) return true;
+    const patterns = [
+      /\bi accept( the)? offer\b/,
+      /\boffer (is )?accepted\b/,
+      /\bwe (have )?an? (agreement|deal)\b/,
+      /\b(let ?us|let's) (proceed|sign|finalize)\b/,
+      /\bthis (is|looks|sounds) (good|acceptable|fine)\b/,
+      /\bready to (start|join)\b/,
+      /\bconsider it accepted\b/,
+    ];
+    return patterns.some((rx) => rx.test(t));
+  }
 
-Negotiation policy:
-- Role: fair, professional, non-defensive, no small talk. Stay on salary & benefits.
-- Opening offer: €2500 net/month with standard benefits (meal vouchers, hospitalisation, 20d leave).
-- Target zone: aim €2500–€2900 net; hard floor €2500; hard ceiling €3000. Never go outside. Never mention this ceiling.
-- Concessions: only if the candidate justifies with market data, experience, or competing offers. Never offer €3000 as the first or second concession, no matter how high the candidate's counteroffer.
-  • 1st concession: +€100–€150
-  • 2nd: +€50–€100
-  • 3rd+: very small (+€0–€50) or propose non-salary perks (1 extra leave day but you can give up to 5 extra leave days, training budget, extra meal vouchers)
-- If candidate accepts: confirm final salary and summarise benefits, then end politely.
-- If candidate asks for unrealistic numbers: explain limits, offer small perk, keep stance "firm".
-- Tone: concise, neutral, professional. No emojis. Max 2-3 sentences.
+  // --- SEND MESSAGE ---
+  async function sendMessage(e) {
+    e?.preventDefault?.();
+    if (!input.trim() || inputDisabled) return;
 
-Output strictly as JSON (no Markdown, no backticks).
-`;
+    const newMessages = [...messages, { role: "user", content: input }];
+    setMessages(newMessages);
+    setInput("");
+    setLoading(true);
 
-export async function POST(req) {
-  try {
-    const { messages, state } = await req.json();
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), { status: 500 });
-    }
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    // prepend system + optional state primer
-    const systemMessages = [{ role: "system", content: HR_SYSTEM_PROMPT }];
-    if (state?.current_offer_net) {
-      systemMessages.push({
-        role: "system",
-        content: `Current internal state: ${JSON.stringify(state)}`
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: newMessages,
+          state: negStateRef.current || {},
+          rid: metaRef.current.rid,
+          cond: metaRef.current.cond,
+        }),
       });
+
+      const data = await res.json();
+      const hrText = data?.message || data?.reply || data?.error || "No response.";
+      const afterAssistant = [...newMessages, { role: "assistant", content: hrText }];
+      setMessages(afterAssistant);
+
+      if (data?.state && typeof data.state === "object") {
+        negStateRef.current = data.state;
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Connection error. Please try again." },
+      ]);
     }
 
-    const completion = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.2,
-      messages: [
-        ...systemMessages,
-        ...messages
-      ],
-      response_format: { type: "json_object" } // dwing JSON af
-    });
-
-    const raw = completion.choices?.[0]?.message?.content || "{}";
-    let json;
-    try { json = JSON.parse(raw); }
-    catch { json = { message: raw, state: {} }; }
-
-    // Fallbacks
-    if (!json.message) json.message = "Let's keep it professional. How would you like to proceed?";
-    if (!json.state)   json.state   = {};
-
-    return new Response(JSON.stringify(json), { headers: { "Content-Type": "application/json" } });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    setLoading(false);
   }
+
+  // --- RUN ANALYSIS ---
+  async function runAnalysis(messagesOverride) {
+    const arr = messagesOverride || messages;
+    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation: transcript }),
+      });
+      const data = await res.json();
+      setAnalysis(data);
+    } catch {
+      setAnalysis({ error: "Analysis failed." });
+    }
+    setLoading(false);
+  }
+
+  // --- AUTO STOP ---
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role === "assistant" && detectAgreement(last.content)) {
+      setInputDisabled(true);
+      const withSystem = [
+        ...messages,
+        { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
+      ];
+      setMessages(withSystem);
+      setTimeout(() => {
+        runAnalysis(withSystem);
+        setChatClosed(true);
+      }, 0);
+    }
+  }, [messages]);
+
+  // --- VISUALIZATION ---
+  const getIndexData = (analysis) => {
+    if (!analysis) return [];
+    return [
+      { name: "Competition", score: analysis.Competition?.comp_index || 0 },
+      { name: "Collaboration", score: analysis.Collaboration?.collab_index || 0 },
+      { name: "Compromise", score: analysis.Compromise?.compr_index || 0 },
+      { name: "Accommodation", score: analysis.Accommodation?.accom_index || 0 },
+      { name: "Avoidance", score: analysis.Avoidance?.avoid_index || 0 },
+    ];
+  };
+
+  return (
+    <div className="relative bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
+      {/* Chat area */}
+      <div className="flex flex-col p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+        {messages.map((m, i) => (
+          <div
+            key={i}
+            className={`rounded-2xl px-4 py-2 shadow max-w-[80%] text-sm ${
+              m.role === "assistant"
+                ? "bg-gray-200 text-gray-800 self-start rounded-bl-none"
+                : m.role === "system"
+                ? "bg-green-100 text-green-800 self-center text-center"
+                : "bg-blue-600 text-white self-end rounded-br-none"
+            }`}
+          >
+            {m.content}
+          </div>
+        ))}
+        {loading && (
+          <div className="text-center text-gray-400 text-sm italic">Thinking...</div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input bar */}
+      <form
+        onSubmit={sendMessage}
+        className="flex items-center gap-2 border-t border-gray-200 p-3 bg-gray-50"
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={
+            inputDisabled ? "Negotiation concluded." : "Type your message..."
+          }
+          disabled={loading || inputDisabled}
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100"
+        />
+        <button
+          type="submit"
+          disabled={loading || inputDisabled}
+          className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+        >
+          Send
+        </button>
+        <button
+          type="button"
+          onClick={() => runAnalysis()}
+          disabled={loading}
+          className="px-4 py-2 bg-gray-800 text-white rounded-full text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
+        >
+          Analyze
+        </button>
+      </form>
+
+      {/* Analysis output */}
+      {analysis && (
+        <div className="p-4 bg-gray-50 border-t border-gray-200 text-sm">
+          <h2 className="text-base font-semibold mb-2">Negotiation Style Profile</h2>
+          <div className="w-full h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={getIndexData(analysis)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis domain={[1, 7]} />
+                <Tooltip />
+                <Bar dataKey="score" fill="#2563eb" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-3 text-gray-600 italic">
+            {analysis.notes || "No qualitative summary available."}
+          </p>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-gray-500 text-xs">
+              Show raw data
+            </summary>
+            <pre className="mt-2 text-xs bg-white border border-gray-200 p-2 rounded">
+              {JSON.stringify(analysis, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+
+      {/* Overlay (no opacity anymore) */}
+      {chatClosed && (
+        <div className="absolute inset-0 bg-white flex items-center justify-center text-lg font-semibold text-gray-700">
+          💬 Chat closed — thank you for participating!
+        </div>
+      )}
+    </div>
+  );
 }
