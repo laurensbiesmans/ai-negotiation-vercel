@@ -49,7 +49,7 @@ export async function POST(req) {
 
     const completion = await client.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.7,
+      temperature: 0.2,
       messages: [
         ...systemMessages,
         ...messages
