@@ -130,7 +130,7 @@ export async function POST(req) {
 
     // Redirect to Qualtrics continuation (change QID if needed)
     const qualtricsBase =
-      "https://feb.qualtrics.com/jfe/form/SV_3k1cnUM6cqEVGL4?Q_JUMP_TO=QID12"; // 👈 replace QID12 with the next question
+      "https://feb.qualtrics.com/jfe/form/SV_3k1cnUM6cqEVGL4?Q_JUMP_TO=workexp"; // 👈 replace QID12 with the next question
     const redirectUrl = `${qualtricsBase}&${params.toString()}`;
 
     return new Response(
