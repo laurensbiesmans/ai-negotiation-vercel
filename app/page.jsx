@@ -24,7 +24,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [inputDisabled, setInputDisabled] = useState(false);
-  const [chatClosed, setChatClosed] = useState(false); // NEW — for fade-out animation
+  const [chatClosed, setChatClosed] = useState(false);
 
   const negStateRef = useRef({});
   const metaRef = useRef({ rid: null, cond: null });
@@ -43,9 +43,15 @@ export default function Page() {
     metaRef.current.cond = p.get("cond") || null;
   }, []);
 
-  // --- 🧠 AUTO-DETECTION FUNCTION FOR AGREEMENT ---
+  // --- 🧠 ROBUST AGREEMENT DETECTION ---
+  function normalize(s) {
+    return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  }
   function detectAgreement(text) {
-    const dealKeywords = [
+    const t = normalize(text);
+
+    // keyword includes (punctuation-insensitive)
+    const keywords = [
       "we have a deal",
       "welcome to the team",
       "deal",
@@ -57,20 +63,32 @@ export default function Page() {
       "welcome aboard",
       "congratulations",
       "agreed on",
-      "i'm happy to confirm",
+      "i m happy to confirm",
       "sounds fair",
       "that works for me",
       "this looks good",
       "offer sounds good",
-      "i'm satisfied",
-      "i'll take it",
+      "i m satisfied",
+      "i ll take it",
       "i accept your offer",
       "sounds good to me",
       "happy to join",
       "looking forward to joining",
     ];
-    const lower = text.toLowerCase();
-    return dealKeywords.some((k) => lower.includes(k));
+    const hasKeyword = keywords.some((k) => t.includes(k));
+    if (hasKeyword) return true;
+
+    // regex patterns (covers small variations)
+    const patterns = [
+      /\bi accept( the)? offer\b/,
+      /\boffer (is )?accepted\b/,
+      /\bwe (have )?an? (agreement|deal)\b/,
+      /\b(let ?us|let's) (proceed|sign|finalize)\b/,
+      /\bthis (is|looks|sounds) (good|acceptable|fine)\b/,
+      /\bready to (start|join)\b/,
+      /\bconsider it accepted\b/,
+    ];
+    return patterns.some((rx) => rx.test(t));
   }
 
   // --- 💬 SEND MESSAGE FUNCTION ---
@@ -99,7 +117,10 @@ export default function Page() {
       const hrText = data?.message || data?.reply || data?.error || "No response.";
 
       // Add HR message
-      setMessages((prev) => [...prev, { role: "assistant", content: hrText }]);
+      const afterAssistant = [...newMessages, { role: "assistant", content: hrText }];
+      setMessages(afterAssistant);
+
+      // Keep internal state
       if (data?.state && typeof data.state === "object") {
         negStateRef.current = data.state;
       }
@@ -113,9 +134,10 @@ export default function Page() {
     setLoading(false);
   }
 
-  // --- 📊 RUN ANALYSIS FUNCTION ---
-  async function runAnalysis() {
-    const transcript = messages.map((m) => `${m.role}: ${m.content}`).join("\n");
+  // --- 📊 RUN ANALYSIS FUNCTION (accepts optional messages for freshest transcript) ---
+  async function runAnalysis(messagesOverride) {
+    const arr = messagesOverride || messages;
+    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
     setLoading(true);
     try {
       const res = await fetch("/api/analyze", {
@@ -135,16 +157,24 @@ export default function Page() {
   useEffect(() => {
     if (messages.length === 0) return;
     const last = messages[messages.length - 1];
-    if (last.role === "assistant" && detectAgreement(last.content)) {
-      setInputDisabled(true);
-      setMessages((prev) => [
-        ...prev,
-        { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
-      ]);
-      runAnalysis();
 
-      // ✨ Trigger fade out and overlay after short delay
-      setTimeout(() => setChatClosed(true), 2000);
+    if (last.role === "assistant" && detectAgreement(last.content)) {
+      // freeze input immediately
+      setInputDisabled(true);
+
+      // append system message, then analyze THAT final transcript
+      const withSystem = [
+        ...messages,
+        { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
+      ];
+      setMessages(withSystem);
+
+      // analyze using the array that already includes the system close message
+      // schedule on next tick to avoid racing React state updates
+      setTimeout(() => {
+        runAnalysis(withSystem);
+        setTimeout(() => setChatClosed(true), 2000); // fade overlay after 2s
+      }, 0);
     }
   }, [messages]);
 
@@ -211,7 +241,7 @@ export default function Page() {
         </button>
         <button
           type="button"
-          onClick={runAnalysis}
+          onClick={() => runAnalysis()}
           disabled={loading}
           className="px-4 py-2 bg-gray-800 text-white rounded-full text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
         >
