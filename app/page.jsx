@@ -46,6 +46,7 @@ export default function Page() {
   function detectAgreement(text) {
     const dealKeywords = [
       "we have a deal",
+      "welcome to the team",
       "deal",
       "agreement",
       "offer accepted",
