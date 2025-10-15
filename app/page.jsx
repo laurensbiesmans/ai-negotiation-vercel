@@ -11,6 +11,7 @@ import {
 } from "recharts";
 
 export default function Page() {
+  // --- State ---
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -18,21 +19,21 @@ export default function Page() {
         "Thank you for joining me in this conversation to discuss your contract as we would like to offer you this job. Based on your relevant experience and match with this role, we would like to offer you a salary of €2500 net per month with standard benefits, such as 20 days paid leave, hospitalisation, and meal vouchers. How would you like to respond?",
     },
   ]);
-
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [inputDisabled, setInputDisabled] = useState(false);
-  const [chatClosed, setChatClosed] = useState(false);
 
   const negStateRef = useRef({});
   const metaRef = useRef({ rid: null, cond: null });
   const bottomRef = useRef(null);
 
+  // --- Scroll automatically on new message ---
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // --- Get URL parameters (Qualtrics integration) ---
   useEffect(() => {
     if (typeof window === "undefined") return;
     const p = new URLSearchParams(window.location.search);
@@ -40,51 +41,33 @@ export default function Page() {
     metaRef.current.cond = p.get("cond") || null;
   }, []);
 
-  // AGREEMENT DETECTION
-  function normalize(s) {
-    return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  // --- Agreement detection helper ---
+  function normalize(text) {
+    return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim();
   }
 
   function detectAgreement(text) {
     const t = normalize(text);
     const keywords = [
       "we have a deal",
-      "welcome to the team",
-      "deal",
-      "agreement",
       "offer accepted",
-      "accept the offer",
       "i accept",
-      "accepted",
+      "accepted the offer",
       "welcome aboard",
       "congratulations",
       "agreed on",
-      "i m happy to confirm",
-      "sounds fair",
-      "that works for me",
-      "this looks good",
-      "offer sounds good",
-      "i m satisfied",
-      "i ll take it",
-      "i accept your offer",
       "sounds good to me",
       "happy to join",
-      "looking forward to joining",
+      "that works for me",
+      "i'll take it",
+      "deal",
+      "agreement",
+      "i accept your offer",
     ];
-    if (keywords.some((k) => t.includes(k))) return true;
-    const patterns = [
-      /\bi accept( the)? offer\b/,
-      /\boffer (is )?accepted\b/,
-      /\bwe (have )?an? (agreement|deal)\b/,
-      /\b(let ?us|let's) (proceed|sign|finalize)\b/,
-      /\bthis (is|looks|sounds) (good|acceptable|fine)\b/,
-      /\bready to (start|join)\b/,
-      /\bconsider it accepted\b/,
-    ];
-    return patterns.some((rx) => rx.test(t));
+    return keywords.some((k) => t.includes(k));
   }
 
-  // SEND MESSAGE
+  // --- Send message handler ---
   async function sendMessage(e) {
     e?.preventDefault?.();
     if (!input.trim() || inputDisabled) return;
@@ -108,11 +91,28 @@ export default function Page() {
 
       const data = await res.json();
       const hrText = data?.message || data?.reply || data?.error || "No response.";
-      const afterAssistant = [...newMessages, { role: "assistant", content: hrText }];
-      setMessages(afterAssistant);
 
+      // Add HR reply
+      const updated = [...newMessages, { role: "assistant", content: hrText }];
+      setMessages(updated);
+
+      // Save HR internal state
       if (data?.state && typeof data.state === "object") {
         negStateRef.current = data.state;
+      }
+
+      // Detect agreement automatically
+      if (detectAgreement(hrText)) {
+        setInputDisabled(true);
+        const doneMessages = [
+          ...updated,
+          { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
+        ];
+        setMessages(doneMessages);
+
+        // Run automatic analysis right after
+        await runAnalysis(doneMessages);
+        return;
       }
     } catch {
       setMessages((prev) => [
@@ -124,7 +124,7 @@ export default function Page() {
     setLoading(false);
   }
 
-  // RUN ANALYSIS
+  // --- Run analysis (AI evaluation) ---
   async function runAnalysis(messagesOverride) {
     const arr = messagesOverride || messages;
     const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
@@ -143,25 +143,7 @@ export default function Page() {
     setLoading(false);
   }
 
-  // AUTO STOP
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const last = messages[messages.length - 1];
-    if (last.role === "assistant" && detectAgreement(last.content)) {
-      setInputDisabled(true);
-      const withSystem = [
-        ...messages,
-        { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
-      ];
-      setMessages(withSystem);
-      setTimeout(() => {
-        runAnalysis(withSystem);
-        setChatClosed(true);
-      }, 0);
-    }
-  }, [messages]);
-
-  // VISUALIZATION DATA
+  // --- Chart data ---
   const getIndexData = (analysis) => {
     if (!analysis) return [];
     return [
@@ -173,10 +155,10 @@ export default function Page() {
     ];
   };
 
-  // RENDER
+  // --- Render UI ---
   return (
-    <div className="relative bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
-      {/* Chat Area */}
+    <div className="bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
+      {/* 💬 Chat area */}
       <div className="flex flex-col p-4 space-y-2 max-h-[60vh] overflow-y-auto">
         {messages.map((m, i) => (
           <div
@@ -196,7 +178,7 @@ export default function Page() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input Bar */}
+      {/* ✏️ Input bar */}
       <form
         onSubmit={sendMessage}
         className="flex items-center gap-2 border-t border-gray-200 p-3 bg-gray-50"
@@ -217,7 +199,7 @@ export default function Page() {
         </button>
         <button
           type="button"
-          onClick={() => runAnalysis()}
+          onClick={runAnalysis}
           disabled={loading}
           className="px-4 py-2 bg-gray-800 text-white rounded-full text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
         >
@@ -225,7 +207,7 @@ export default function Page() {
         </button>
       </form>
 
-      {/* Analysis Section */}
+      {/* 📊 AI Analysis */}
       {analysis && (
         <div className="p-4 bg-gray-50 border-t border-gray-200 text-sm">
           <h2 className="text-base font-semibold mb-2">Negotiation Style Profile</h2>
@@ -249,13 +231,6 @@ export default function Page() {
               {JSON.stringify(analysis, null, 2)}
             </pre>
           </details>
-        </div>
-      )}
-
-      {/* Chat Closed Overlay */}
-      {chatClosed && (
-        <div className="absolute inset-0 bg-white flex items-center justify-center text-lg font-semibold text-gray-700">
-          💬 Chat closed — thank you for participating!
         </div>
       )}
     </div>
