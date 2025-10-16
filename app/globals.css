@@ -8,3 +8,12 @@ html, body { height: 100%; background-color: #f3f4f6; }
 .chat-bubble { @apply rounded-2xl px-4 py-2 shadow max-w-[80%] text-sm; }
 .hr-bubble { @apply bg-gray-200 text-gray-800 self-start rounded-bl-none; }
 .user-bubble { @apply bg-blue-600 text-white self-end rounded-br-none; }
+
+/* Optional: clean up <details> markers */
+details summary {
+  list-style: none;
+  cursor: pointer;
+}
+details summary::-webkit-details-marker {
+  display: none;
+}
