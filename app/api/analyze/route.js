@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 import OpenAI from "openai";
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- SCIENTIFIC ANALYSIS PROMPT (Marks & Harold, 2011) ---
 const ANALYZE_PROMPT = `
