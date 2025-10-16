@@ -323,8 +323,8 @@ export default function Page() {
           {/* ▼ Detailed item scores */}
           <details className="mt-4">
             <summary className="cursor-pointer font-medium text-gray-700">
-              ▼ Show item scores (per dimension)
-            </summary>
+  Show item scores (per dimension)
+</summary>
 
             <div className="mt-2 space-y-4 text-sm text-gray-700">
               {[
