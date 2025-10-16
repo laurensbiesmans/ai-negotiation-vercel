@@ -376,6 +376,3 @@ const getIndexData = (analysis) => {
     </div>
   );
 }
-
-
-
