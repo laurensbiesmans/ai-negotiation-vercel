@@ -208,13 +208,20 @@ export default function Page() {
   const getIndexData = (analysis) => {
     if (!analysis) return [];
     return [
-      { name: "Competition", score: analysis.Competiting?.comp_index || 0 },
-      { name: "Collaboration", score: analysis.Collaborating?.collab_index || 0 },
-      { name: "Compromise", score: analysis.Compromising?.compr_index || 0 },
-      { name: "Accommodation", score: analysis.Accommodating?.accom_index || 0 },
-      { name: "Avoidance", score: analysis.Avoiding?.avoid_index || 0 },
+      { name: "Competiting", score: analysis.Competiting?.comp_index || 0 },
+      { name: "Collaborating", score: analysis.Collaborating?.collab_index || 0 },
+      { name: "Compromising", score: analysis.Compromising?.compr_index || 0 },
+      { name: "Accommodating", score: analysis.Accommodating?.accom_index || 0 },
+      { name: "Avoiding", score: analysis.Avoiding?.avoid_index || 0 },
     ];
   };
+
+// helper:
+function average(arr) {
+  if (!arr.length) return 0;
+  const nums = arr.map((x) => parseFloat(x) || 0);
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
 
   // --- 🧩 Render ---
   return (
