@@ -59,6 +59,7 @@ export default function Page() {
       /\bwelcome to the team\b/,
       /\bi'?m glad we could reach an agreement\b/,
       /\bi'?m happy to confirm our agreement\b/,
+      /\bwe have an agreement\b/,
       /\bi'?m pleased to finalize the offer\b/,
       /\boffer confirmed\b/,
       /\bthank you for accepting\b/,
