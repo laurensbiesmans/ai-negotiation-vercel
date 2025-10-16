@@ -113,11 +113,11 @@ export default function Page() {
             rid: metaRef.current.rid || "TEST",
             agreement: agreementFlag,
             salary: analysisData?.salary || "0",
-            ...analysisData.Competition,
-            ...analysisData.Collaboration,
-            ...analysisData.Compromise,
-            ...analysisData.Accommodation,
-            ...analysisData.Avoidance,
+            ...analysisData.Competing,
+            ...analysisData.Collaborating,
+            ...analysisData.Compromising,
+            ...analysisData.Accommodating,
+            ...analysisData.Avoiding,
           },
         },
         "*"
@@ -208,11 +208,11 @@ export default function Page() {
   const getIndexData = (analysis) => {
     if (!analysis) return [];
     return [
-      { name: "Competition", score: analysis.Competition?.comp_index || 0 },
-      { name: "Collaboration", score: analysis.Collaboration?.collab_index || 0 },
-      { name: "Compromise", score: analysis.Compromise?.compr_index || 0 },
-      { name: "Accommodation", score: analysis.Accommodation?.accom_index || 0 },
-      { name: "Avoidance", score: analysis.Avoidance?.avoid_index || 0 },
+      { name: "Competition", score: analysis.Competiting?.comp_index || 0 },
+      { name: "Collaboration", score: analysis.Collaborating?.collab_index || 0 },
+      { name: "Compromise", score: analysis.Compromising?.compr_index || 0 },
+      { name: "Accommodation", score: analysis.Accommodating?.accom_index || 0 },
+      { name: "Avoidance", score: analysis.Avoiding?.avoid_index || 0 },
     ];
   };
 
