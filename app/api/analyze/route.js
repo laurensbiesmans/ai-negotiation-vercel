@@ -147,7 +147,7 @@ export async function POST(req) {
 const cleaned = {
   salary,
   agreement,
-  Competiting: c,
+  Competing: c,
   Collaborating: l,
   Compromising: p,
   Accommodating: a,
@@ -158,3 +158,4 @@ const cleaned = {
 return new Response(JSON.stringify(cleaned), {
   headers: { "Content-Type": "application/json" },
 });
+}
