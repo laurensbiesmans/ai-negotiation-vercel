@@ -46,6 +46,39 @@ where an ‘‘avoid’’ approach would be effective, often in salary negotiat
 money on the table.’’ The dual concerns model considers the avoiding strategy as one that represents
 low concern about one’s own and other’s outcomes.
 
+These are the items:
+
+Competing
+During negotiation, I try to persuade the organization to better my offer by threatening to withdraw from the process.
+In the negotiation process, I present information about my past record and qualifications to improve the quality of the offer extended to me.
+During negotiations, I make clear the value and benefit I could bring to the organization, in an attempt to influence the process.
+While negotiating, I do not take “no” for an answer.
+During the negotiation process, if I feel that the organization's offer is unreasonable, I make sure to make my feelings known.
+I present information about the market value of the position for which I was hired.
+
+Collaborating
+I try to negotiate an offer that is acceptable to both me and the organization.
+I try to integrate my interests with those of the organization to come up with an offer supported by both sides.
+I try to work together with the organization to come up with an acceptable offer.
+I exchange accurate information with the organization to come to a joint agreement.
+I try to bring all of our concerns out in the open so that the issues can be resolved in the best possible way.
+I collaborate with the organization to come up with an offer acceptable to both of us.
+I try to work with the organization to gain a thorough understanding of their position.
+
+Compromising
+I try to find a middle ground to reach an acceptable offer.
+I propose a middle ground to resolve the differences between our two sides.
+I tend to “give and take” so that compromise can be made.
+
+Accommodating
+I initiate job negotiations, but I tend to give in to the demands of the organization.
+To reach an agreement, I tend to allow more concessions than the organization.
+I tend to feel myself trying to accommodate the wishes of the organization.
+Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered.
+
+Avoiding
+After receiving a job offer, I negotiated to get what I wanted.
+
 Return STRICT JSON in this format:
 {
   "salary": number,
