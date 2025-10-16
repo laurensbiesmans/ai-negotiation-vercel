@@ -157,5 +157,6 @@ const cleaned = {
 
   return new Response(JSON.stringify(cleaned), {
     headers: { "Content-Type": "application/json" },
-  });
-} // 👈 voeg deze sluit-accolade toe om de POST functie af te sluiten
+    });
+  }
+}
