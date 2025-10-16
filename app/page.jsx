@@ -66,6 +66,8 @@ export default function Page() {
       /\bconsider this offer accepted\b/,
       /\bthe agreement is complete\b/,
       /\bwe'?re excited to have you join\b/,
+      /\bthank you for (your )?acceptance\b/,
+      /\blook forward to having you (on board|join|in the team)\b/,
     ];
     return patterns.some((re) => re.test(t));
   }
@@ -97,11 +99,8 @@ export default function Page() {
         body: JSON.stringify({ conversation: transcript }),
       });
       const data = await res.json();
-
-      // ✅ pak het binnenste object als het onder "analysis" zit
       const result = data.analysis || data;
       console.log("🔍 Cleaned analysis result:", result);
-
       setAnalysis(result);
       return result;
     } catch (err) {
@@ -223,15 +222,13 @@ export default function Page() {
     sendToQualtrics(analysisData, agreementFlag);
   }
 
-  // --- 📈 Chart data (exactly one definition!) ---
+  // --- 📈 Chart data ---
   const getIndexData = (analysis) => {
     if (!analysis) return [];
 
     const avg = (obj = {}) => {
       const vals = Object.values(obj).map((v) => parseFloat(v) || 0);
-      return vals.length
-        ? vals.reduce((a, b) => a + b, 0) / vals.length
-        : 0;
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
     };
 
     return [
@@ -322,8 +319,61 @@ export default function Page() {
           <p className="mt-3 text-gray-600 italic">
             {analysis.notes || "No qualitative summary available."}
           </p>
+
+          {/* ▼ Detailed item scores */}
+          <details className="mt-4">
+            <summary className="cursor-pointer font-medium text-gray-700">
+              ▼ Show item scores (per dimension)
+            </summary>
+
+            <div className="mt-2 space-y-4 text-sm text-gray-700">
+              {[
+                "Competing",
+                "Collaborating",
+                "Compromising",
+                "Accommodating",
+                "Avoiding",
+              ].map((dim) => (
+                <div key={dim}>
+                  <h3 className="font-semibold text-gray-800">{dim}</h3>
+                  {analysis[dim] ? (
+                    <ul className="ml-4 list-disc">
+                      {Object.entries(analysis[dim])
+                        .filter(([k]) => !k.endsWith("_index"))
+                        .map(([key, value]) => (
+                          <li key={key}>
+                            <span className="font-mono text-gray-600">{key}</span>:{" "}
+                            <span className="text-gray-900">
+                              {typeof value === "number" ? value.toFixed(2) : value}
+                            </span>
+                            {dim === "Avoiding" && key === "avoid_negotiating" && (
+                              <span className="text-gray-500 text-xs italic">
+                                {" "}
+                                (reversed item)
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                    </ul>
+                  ) : (
+                    <p className="text-gray-500 italic">No items scored.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
       )}
     </div>
   );
 }
+
+/* BONUS – Optional CSS for cleaner details marker */
+<style jsx global>{`
+  details summary {
+    list-style: none;
+  }
+  details summary::-webkit-details-marker {
+    display: none;
+  }
+`}</style>
