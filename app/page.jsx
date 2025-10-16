@@ -316,9 +316,33 @@ export default function Page() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-3 text-gray-600 italic">
-            {analysis.notes || "No qualitative summary available."}
-          </p>
+          {/* --- Summary info (salary & agreement) --- */}
+<div className="mt-3 text-gray-700 text-sm">
+  {analysis.salary ? (
+    <p>
+      <strong>Final salary:</strong> €{analysis.salary.toLocaleString("en-US")}
+    </p>
+  ) : (
+    <p>
+      <strong>Final salary:</strong> Not specified
+    </p>
+  )}
+
+  <p>
+    <strong>Agreement reached:</strong>{" "}
+    {analysis.agreement === "yes"
+      ? "✅ Yes"
+      : analysis.agreement === "no"
+      ? "❌ No"
+      : "Manual / Unclear"}
+  </p>
+</div>
+
+{/* --- Qualitative summary --- */}
+<p className="mt-3 text-gray-600 italic">
+  {analysis.notes || "No qualitative summary available."}
+</p>
+
 
           {/* ▼ Detailed item scores */}
           <details className="mt-4">
