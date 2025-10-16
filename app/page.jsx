@@ -43,7 +43,11 @@ export default function Page() {
 
   // --- 🧠 Agreement detection ---
   function normalize(text) {
-    return text.toLowerCase().replace(/[.,!?'"-]/g, " ").replace(/\s+/g, " ").trim();
+    return text
+      .toLowerCase()
+      .replace(/[.,!?'"-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function detectAgreement(text) {
@@ -81,33 +85,33 @@ export default function Page() {
     return patterns.some((re) => re.test(t));
   }
 
- // --- 📊 Run analysis ---
-async function runAnalysis(messagesOverride) {
-  const arr = messagesOverride || messages;
-  const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
-  setLoading(true);
-  try {
-    const res = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation: transcript }),
-    });
-    const data = await res.json();
+  // --- 📊 Run analysis ---
+  async function runAnalysis(messagesOverride) {
+    const arr = messagesOverride || messages;
+    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation: transcript }),
+      });
+      const data = await res.json();
 
-    // 🧠 Fix: pick inner analysis object if wrapped
-    const result = data.analysis || data;
-    console.log("🔍 Cleaned analysis result:", result);
+      // ✅ pak het binnenste object als het onder "analysis" zit
+      const result = data.analysis || data;
+      console.log("🔍 Cleaned analysis result:", result);
 
-    setAnalysis(result);
-    return result;
-  } catch (err) {
-    console.error("❌ Analysis failed:", err);
-    setAnalysis({ error: "Analysis failed." });
-    return null;
-  } finally {
-    setLoading(false);
+      setAnalysis(result);
+      return result;
+    } catch (err) {
+      console.error("❌ Analysis failed:", err);
+      setAnalysis({ error: "Analysis failed." });
+      return null;
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   // --- 🧭 Send results to Qualtrics ---
   function sendToQualtrics(analysisData, agreementFlag) {
@@ -154,7 +158,8 @@ async function runAnalysis(messagesOverride) {
       });
 
       const data = await res.json();
-      const hrText = data?.message || data?.reply || data?.error || "No response.";
+      const hrText =
+        data?.message || data?.reply || data?.error || "No response.";
       const updated = [...newMessages, { role: "assistant", content: hrText }];
       setMessages(updated);
 
@@ -167,7 +172,11 @@ async function runAnalysis(messagesOverride) {
         setInputDisabled(true);
         const done = [
           ...updated,
-          { role: "system", content: "✅ Agreement reached. Negotiation concluded. Please move on to the next question." },
+          {
+            role: "system",
+            content:
+              "✅ Agreement reached. Negotiation concluded. Please move on to the next question.",
+          },
         ];
         setMessages(done);
         const analysisData = await runAnalysis(done);
@@ -202,7 +211,11 @@ async function runAnalysis(messagesOverride) {
     setInputDisabled(true);
     const done = [
       ...messages,
-      { role: "system", content: "✅ You have manually finished the conversation. Please move on to the next question." },
+      {
+        role: "system",
+        content:
+          "✅ You have manually finished the conversation. Please move on to the next question.",
+      },
     ];
     setMessages(done);
     const analysisData = await runAnalysis(done);
@@ -210,30 +223,25 @@ async function runAnalysis(messagesOverride) {
     sendToQualtrics(analysisData, agreementFlag);
   }
 
-  // --- 📈 Chart data ---
-const getIndexData = (analysis) => {
-  if (!analysis) return [];
+  // --- 📈 Chart data (exactly one definition!) ---
+  const getIndexData = (analysis) => {
+    if (!analysis) return [];
 
-  const avg = (obj = {}) => {
-    const vals = Object.values(obj).map((v) => parseFloat(v) || 0);
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    const avg = (obj = {}) => {
+      const vals = Object.values(obj).map((v) => parseFloat(v) || 0);
+      return vals.length
+        ? vals.reduce((a, b) => a + b, 0) / vals.length
+        : 0;
+    };
+
+    return [
+      { name: "Competing", score: avg(analysis.Competing) },
+      { name: "Collaborating", score: avg(analysis.Collaborating) },
+      { name: "Compromising", score: avg(analysis.Compromising) },
+      { name: "Accommodating", score: avg(analysis.Accommodating) },
+      { name: "Avoiding", score: avg(analysis.Avoiding) },
+    ];
   };
-
-  return [
-    { name: "Competing", score: avg(analysis.Competing) },
-    { name: "Collaborating", score: avg(analysis.Collaborating) },
-    { name: "Compromising", score: avg(analysis.Compromising) },
-    { name: "Accommodating", score: avg(analysis.Accommodating) },
-    { name: "Avoiding", score: avg(analysis.Avoiding) },
-  ];
-};
-
-// helper:
-function average(arr) {
-  if (!arr.length) return 0;
-  const nums = arr.map((x) => parseFloat(x) || 0);
-  return nums.reduce((a, b) => a + b, 0) / nums.length;
-}
 
   // --- 🧩 Render ---
   return (
@@ -255,7 +263,9 @@ function average(arr) {
           </div>
         ))}
         {loading && (
-          <div className="text-center text-gray-400 text-sm italic">Thinking...</div>
+          <div className="text-center text-gray-400 text-sm italic">
+            Thinking...
+          </div>
         )}
         <div ref={bottomRef} />
       </div>
@@ -268,7 +278,9 @@ function average(arr) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={inputDisabled ? "Negotiation concluded." : "Type your message..."}
+          placeholder={
+            inputDisabled ? "Negotiation concluded." : "Type your message..."
+          }
           disabled={loading || inputDisabled}
           className="flex-1 px-3 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100"
         />
@@ -293,7 +305,9 @@ function average(arr) {
       {/* 📊 AI Analysis */}
       {analysis && (
         <div className="p-4 bg-gray-50 border-t border-gray-200 text-sm">
-          <h2 className="text-base font-semibold mb-2">Negotiation Style Profile</h2>
+          <h2 className="text-base font-semibold mb-2">
+            Negotiation Style Profile
+          </h2>
           <div className="w-full h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={getIndexData(analysis)}>
@@ -301,7 +315,7 @@ function average(arr) {
                 <XAxis dataKey="name" />
                 <YAxis domain={[1, 7]} />
                 <Tooltip />
-                <Bar dataKey="score" fill="#2563eb" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="score" radius={[6, 6, 0, 0]} fill="#2563eb" />
               </BarChart>
             </ResponsiveContainer>
           </div>
