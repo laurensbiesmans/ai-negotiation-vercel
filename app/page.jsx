@@ -372,9 +372,10 @@ const getIndexData = (analysis) => {
         </details>
       </div>
     </details>
-  </div>
-)}
-);
+      </div>
+    </div>
+  );
 }
+
 
 
