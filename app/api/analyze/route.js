@@ -47,7 +47,7 @@ where an ‘‘avoid’’ approach would be effective, often in salary negotiat
 money on the table.’’ The dual concerns model considers the avoiding strategy as one that represents
 low concern about one’s own and other’s outcomes.
 
-These are the items to rate (1–7 scale). Use these **exact JSON keys** and link each to its full original item text:
+These are the items and exact JSON keys:
 
 Competing:
 - "persuade_with_threats" = "During negotiation, I try to persuade the organization to better my offer by threatening to withdraw from the process."
@@ -77,64 +77,28 @@ Accommodating:
 - "accommodate_wishes" = "I tend to feel myself trying to accommodate the wishes of the organization."
 - "go_along_offer" = "Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered."
 
-Avoiding (reversed item):
+Avoiding (reversed):
 - "avoid_negotiating" = "After receiving a job offer, I negotiated to get what I wanted. (reversed item)"
-  → Reverse-score this item so that 1 = not avoiding (i.e., fully engaged in negotiation) and 7 = fully avoiding negotiation.
+Reverse-score this so that 1 = not avoiding, 7 = fully avoiding.
 
-Return STRICT JSON in this format:
+Return STRICT JSON in this format (no explanations, no preface):
 {
   "salary": number,
   "agreement": "yes" | "no",
-  "Competing": {
-    "persuade_with_threats": number,
-    "present_qualifications": number,
-    "communicate_value": number,
-    "persistent_no": number,
-    "express_unreasonableness": number,
-    "present_market_value": number
-  },
-  "Collaborating": {
-    "mutual_acceptability": number,
-    "integrate_interests": number,
-    "joint_offer": number,
-    "accurate_information": number,
-    "open_concerns": number,
-    "collaborate_offer": number,
-    "understand_position": number
-  },
-  "Compromising": {
-    "find_middle_ground": number,
-    "propose_middle_ground": number,
-    "give_and_take": number
-  },
-  "Accommodating": {
-    "give_in_to_demands": number,
-    "allow_concessions": number,
-    "accommodate_wishes": number,
-    "go_along_offer": number
-  },
-  "Avoiding": {
-    "avoid_negotiating": number
-  },
-  "notes": "concise qualitative summary (1–2 sentences)"
+  "Competing": {...},
+  "Collaborating": {...},
+  "Compromising": {...},
+  "Accommodating": {...},
+  "Avoiding": {...},
+  "notes": "concise summary"
 }
-
-Rules:
-- Estimate "salary" from the final negotiated amount if mentioned (numbers with € or similar).
-- Set "agreement" = "yes" if the conversation ends with clear mutual acceptance; otherwise "no".
-- If data are missing, use midpoint (4).
-- Compute each *_index as the mean of its items.
-- Reverse-code Avoiding as (8 - score).
-- All numeric answers must be plain numbers (1–7), not text.
-- Return valid JSON only.
 `;
 
 export async function POST(req) {
   try {
     const { conversation } = await req.json();
-    if (!conversation) {
+    if (!conversation)
       return Response.json({ error: "No conversation provided." }, { status: 400 });
-    }
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
@@ -142,8 +106,7 @@ export async function POST(req) {
       messages: [
         {
           role: "system",
-          content:
-            "You are an expert organizational psychologist analyzing negotiation transcripts.",
+          content: "You are an expert organizational psychologist analyzing negotiation transcripts.",
         },
         {
           role: "user",
@@ -153,33 +116,45 @@ export async function POST(req) {
       temperature: 0,
     });
 
-    const text = completion.choices[0]?.message?.content || "{}";
-    let analysis = JSON.parse(text);
+    let text = completion.choices[0]?.message?.content?.trim() || "{}";
 
-    // ✅ Compute index scores
-    function mean(obj) {
-      const vals = Object.values(obj || {}).map((v) => parseFloat(v) || 4);
-      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 4;
+    // 🧹 Try to isolate JSON
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) text = jsonMatch[0];
+
+    let analysis;
+    try {
+      analysis = JSON.parse(text);
+    } catch {
+      console.error("❌ Could not parse JSON from model:", text);
+      return Response.json({ error: "Invalid JSON returned." }, { status: 500 });
     }
 
-    const l = mean(analysis.Collaborating);
-    const c = mean(analysis.Competing);
-    const p = mean(analysis.Compromising);
-    const a = mean(analysis.Accommodating);
-    const v = mean(analysis.Avoiding);
+    // ✅ Reverse-code Avoiding
+    if (analysis?.Avoiding?.avoid_negotiating) {
+      const val = parseFloat(analysis.Avoiding.avoid_negotiating);
+      analysis.Avoiding.avoid_negotiating = 8 - (isNaN(val) ? 4 : val);
+    }
 
-    analysis = {
-      ...analysis,
-      Collaborating: { ...analysis.Collaborating, collab_index: l },
-      Competing: { ...analysis.Competing, comp_index: c },
-      Compromising: { ...analysis.Compromising, compr_index: p },
-      Accommodating: { ...analysis.Accommodating, accom_index: a },
-      Avoiding: { ...analysis.Avoiding, avoid_index: v },
+    // ✅ Compute index scores
+    const mean = (obj) => {
+      const vals = Object.values(obj || {}).map((v) => parseFloat(v) || 4);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 4;
     };
+
+    const addIndex = (key, idx) => {
+      if (analysis[key]) analysis[key][idx] = mean(analysis[key]);
+    };
+
+    addIndex("Competing", "comp_index");
+    addIndex("Collaborating", "collab_index");
+    addIndex("Compromising", "compr_index");
+    addIndex("Accommodating", "accom_index");
+    addIndex("Avoiding", "avoid_index");
 
     return Response.json(analysis);
   } catch (err) {
-    console.error("❌ Error in /api/analyze:", err);
+    console.error("❌ /api/analyze failed:", err);
     return Response.json({ error: "Analysis failed." }, { status: 500 });
   }
 }
