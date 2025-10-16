@@ -93,26 +93,13 @@ Rules:
 - Return valid JSON only.
 `;
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-import OpenAI from "openai";
-
-const ANALYZE_PROMPT = `
-You are a behavioral researcher analyzing a salary negotiation transcript.
-Rate the candidate on five conflict-handling styles (Marks & Harold, 2011)
-and return STRICT JSON in the specified format (see below).
-`;
-
-// 🧠 --- DEBUG-FRIENDLY ANALYZE ENDPOINT ---
 export async function POST(req) {
   try {
-    const { conversation } = await req.json();
-    console.log("🟢 [analyze] Incoming conversation sample:", conversation?.slice(0, 250));
+    const { conversation, rid } = await req.json();
 
     if (!process.env.OPENAI_API_KEY) {
-      console.warn("⚠️ Missing OPENAI_API_KEY — returning dummy data");
-      return new Response(JSON.stringify(getDummyAnalysis()), {
-        headers: { "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), {
+        status: 500,
       });
     }
 
@@ -129,18 +116,9 @@ export async function POST(req) {
     });
 
     const raw = completion.choices?.[0]?.message?.content || "{}";
-    console.log("🟣 [analyze] Raw model output:", raw);
+    const analysis = JSON.parse(raw);
 
-    let analysis;
-    try {
-      analysis = JSON.parse(raw);
-    } catch (err) {
-      console.error("❌ JSON parse error from model:", err);
-      return new Response(JSON.stringify(getDummyAnalysis("Invalid model JSON")), {
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
+    // --- 🔧 Sanitize & normalize values ---
     function toNumber(value, fallback = 0) {
       const n = parseFloat(String(value).replace(/[^\d.-]/g, ""));
       return isNaN(n) ? fallback : n;
@@ -148,73 +126,74 @@ export async function POST(req) {
 
     function normalizeSection(section = {}) {
       const result = {};
-      for (const [k, v] of Object.entries(section)) result[k] = toNumber(v, 0);
+      for (const [k, v] of Object.entries(section)) {
+        result[k] = toNumber(v, 0);
+      }
       return result;
     }
 
+    // Normalize key values
     const salary = toNumber(analysis.salary, 0);
-    const agreement = analysis.agreement?.toLowerCase?.() === "yes" ? "yes" : "no";
+    const agreement =
+      analysis.agreement?.toLowerCase?.() === "yes" ? "yes" : "no";
 
-    const cleaned = {
-      salary,
+    const c = normalizeSection(analysis.Competition);
+    const l = normalizeSection(analysis.Collaboration);
+    const p = normalizeSection(analysis.Compromise);
+    const a = normalizeSection(analysis.Accommodation);
+    const v = normalizeSection(analysis.Avoidance);
+
+    // --- 🧩 Build Qualtrics redirect parameters ---
+    const params = new URLSearchParams({
+      rid: rid || "",
+      salary: String(salary),
       agreement,
-      Competing: normalizeSection(analysis.Competing),
-      Collaborating: normalizeSection(analysis.Collaborating),
-      Compromising: normalizeSection(analysis.Compromising),
-      Accommodating: normalizeSection(analysis.Accommodating),
-      Avoiding: normalizeSection(analysis.Avoiding),
-      notes: analysis.notes || "",
-    };
-
-    console.log("✅ [analyze] Returning cleaned analysis:", cleaned);
-
-    return new Response(JSON.stringify(cleaned), {
-      headers: { "Content-Type": "application/json" },
+      // Competition
+      persuade_with_threats: String(c.persuade_with_threats || 0),
+      present_qualifications: String(c.present_qualifications || 0),
+      communicate_value: String(c.communicate_value || 0),
+      persistent_no: String(c.persistent_no || 0),
+      express_unreasonableness: String(c.express_unreasonableness || 0),
+      present_market_value: String(c.present_market_value || 0),
+      // Collaboration
+      mutual_acceptability: String(l.mutual_acceptability || 0),
+      integrate_interests: String(l.integrate_interests || 0),
+      joint_offer: String(l.joint_offer || 0),
+      accurate_information: String(l.accurate_information || 0),
+      open_concerns: String(l.open_concerns || 0),
+      collaborate_offer: String(l.collaborate_offer || 0),
+      understand_position: String(l.understand_position || 0),
+      // Compromise
+      find_middle_ground: String(p.find_middle_ground || 0),
+      propose_middle_ground: String(p.propose_middle_ground || 0),
+      give_and_take: String(p.give_and_take || 0),
+      // Accommodation
+      give_in_to_demands: String(a.give_in_to_demands || 0),
+      allow_concessions: String(a.allow_concessions || 0),
+      accommodate_wishes: String(a.accommodate_wishes || 0),
+      go_along_offer: String(a.go_along_offer || 0),
+      // Avoidance
+      avoid_negotiating: String(v.avoid_negotiating || 0),
     });
-  } catch (err) {
-    console.error("💥 [analyze] Fatal error:", err);
-    return new Response(JSON.stringify(getDummyAnalysis(err.message)), {
-      headers: { "Content-Type": "application/json" },
+
+    // --- 🚀 Redirect to Qualtrics continuation ---
+    const qualtricsBase =
+      "https://feb.qualtrics.com/jfe/form/SV_3k1cnUM6cqEVGL4?Q_JUMP_TO=workexp"; // <-- update target question ID if needed
+    const redirectUrl = `${qualtricsBase}&${params.toString()}`;
+
+    // Return response to frontend
+    return new Response(
+      JSON.stringify({
+        status: "ok",
+        redirect: redirectUrl,
+        analysis,
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("❌ Analyze route error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
     });
   }
-}
-
-function getDummyAnalysis(reason = "Fallback") {
-  console.log(`⚙️ [analyze] Returning dummy analysis (${reason})`);
-  return {
-    salary: 2750,
-    agreement: "yes",
-    Competing: {
-      persuade_with_threats: 2,
-      present_qualifications: 6,
-      communicate_value: 5,
-      persistent_no: 3,
-      express_unreasonableness: 2,
-      present_market_value: 6,
-    },
-    Collaborating: {
-      mutual_acceptability: 6,
-      integrate_interests: 5,
-      joint_offer: 5,
-      accurate_information: 7,
-      open_concerns: 6,
-      collaborate_offer: 6,
-      understand_position: 6,
-    },
-    Compromising: {
-      find_middle_ground: 5,
-      propose_middle_ground: 5,
-      give_and_take: 6,
-    },
-    Accommodating: {
-      give_in_to_demands: 3,
-      allow_concessions: 4,
-      accommodate_wishes: 4,
-      go_along_offer: 4,
-    },
-    Avoiding: {
-      avoid_negotiating: 2,
-    },
-    notes: "Candidate showed strong collaboration with moderate compromise.",
-  };
 }
