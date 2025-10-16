@@ -137,21 +137,21 @@ export async function POST(req) {
     const agreement =
       analysis.agreement?.toLowerCase?.() === "yes" ? "yes" : "no";
 
-    const c = normalizeSection(analysis.Competition);
-    const l = normalizeSection(analysis.Collaboration);
-    const p = normalizeSection(analysis.Compromise);
-    const a = normalizeSection(analysis.Accommodation);
-    const v = normalizeSection(analysis.Avoidance);
+    const c = normalizeSection(analysis.Competing);
+    const l = normalizeSection(analysis.Collaborating);
+    const p = normalizeSection(analysis.Compromising);
+    const a = normalizeSection(analysis.Accommodating);
+    const v = normalizeSection(analysis.Avoiding);
 
     // --- ✅ Return pure analysis to frontend (no redirect) ---
 const cleaned = {
   salary,
   agreement,
-  Competition: c,
-  Collaboration: l,
-  Compromise: p,
-  Accommodation: a,
-  Avoidance: v,
+  Competiting: c,
+  Collaborating: l,
+  Compromising: p,
+  Accommodating: a,
+  Avoiding: v,
   notes: analysis.notes || "",
 };
 
