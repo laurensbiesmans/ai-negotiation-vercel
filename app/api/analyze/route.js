@@ -143,57 +143,18 @@ export async function POST(req) {
     const a = normalizeSection(analysis.Accommodation);
     const v = normalizeSection(analysis.Avoidance);
 
-    // --- 🧩 Build Qualtrics redirect parameters ---
-    const params = new URLSearchParams({
-      rid: rid || "",
-      salary: String(salary),
-      agreement,
-      // Competition
-      persuade_with_threats: String(c.persuade_with_threats || 0),
-      present_qualifications: String(c.present_qualifications || 0),
-      communicate_value: String(c.communicate_value || 0),
-      persistent_no: String(c.persistent_no || 0),
-      express_unreasonableness: String(c.express_unreasonableness || 0),
-      present_market_value: String(c.present_market_value || 0),
-      // Collaboration
-      mutual_acceptability: String(l.mutual_acceptability || 0),
-      integrate_interests: String(l.integrate_interests || 0),
-      joint_offer: String(l.joint_offer || 0),
-      accurate_information: String(l.accurate_information || 0),
-      open_concerns: String(l.open_concerns || 0),
-      collaborate_offer: String(l.collaborate_offer || 0),
-      understand_position: String(l.understand_position || 0),
-      // Compromise
-      find_middle_ground: String(p.find_middle_ground || 0),
-      propose_middle_ground: String(p.propose_middle_ground || 0),
-      give_and_take: String(p.give_and_take || 0),
-      // Accommodation
-      give_in_to_demands: String(a.give_in_to_demands || 0),
-      allow_concessions: String(a.allow_concessions || 0),
-      accommodate_wishes: String(a.accommodate_wishes || 0),
-      go_along_offer: String(a.go_along_offer || 0),
-      // Avoidance
-      avoid_negotiating: String(v.avoid_negotiating || 0),
-    });
+    // --- ✅ Return pure analysis to frontend (no redirect) ---
+const cleaned = {
+  salary,
+  agreement,
+  Competition: c,
+  Collaboration: l,
+  Compromise: p,
+  Accommodation: a,
+  Avoidance: v,
+  notes: analysis.notes || "",
+};
 
-    // --- 🚀 Redirect to Qualtrics continuation ---
-    const qualtricsBase =
-      "https://feb.qualtrics.com/jfe/form/SV_3k1cnUM6cqEVGL4?Q_JUMP_TO=workexp"; // <-- update target question ID if needed
-    const redirectUrl = `${qualtricsBase}&${params.toString()}`;
-
-    // Return response to frontend
-    return new Response(
-      JSON.stringify({
-        status: "ok",
-        redirect: redirectUrl,
-        analysis,
-      }),
-      { headers: { "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("❌ Analyze route error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-    });
-  }
-}
+return new Response(JSON.stringify(cleaned), {
+  headers: { "Content-Type": "application/json" },
+});
