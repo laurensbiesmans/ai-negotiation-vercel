@@ -93,55 +93,17 @@ Rules:
 - Return valid JSON only.
 `;
 
-export async function POST(req) {
-  try {
-    const { conversation } = await req.json();
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+import OpenAI from "openai";
 
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Missing OPENAI_API_KEY" }),
-        { status: 500 }
-      );
-    }
+const ANALYZE_PROMPT = `
+You are a behavioral researcher analyzing a salary negotiation transcript.
+Rate the candidate on five conflict-handling styles (Marks & Harold, 2011)
+and return STRICT JSON in the specified format (see below).
+`;
 
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    const completion = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: ANALYZE_PROMPT },
-        { role: "user", content: conversation || "" },
-      ],
-    });
-
-    const raw = completion.choices?.[0]?.message?.content || "{}";
-    const analysis = JSON.parse(raw);
-
-    // --- 🔧 Sanitize & normalize values ---
-    function toNumber(value, fallback = 0) {
-      const n = parseFloat(String(value).replace(/[^\d.-]/g, ""));
-      return isNaN(n) ? fallback : n;
-    }
-
-    function normalizeSection(section = {}) {
-      const result = {};
-      for (const [k, v] of Object.entries(section)) {
-        result[k] = toNumber(v, 0);
-      }
-      return result;
-    }
-
-    // Normalize key values
-    const salary = toNumber(analysis.salary, 0);
-    const agreement =
-      analysis.agreement?.toLowerCase?.() === "yes" ? "yes" : "no";
-
-    const c = normalizeSection(analysis.Competing);
-    const l = normalizeSection(analysis.Collaborating);
-    const p = normalizeSection(analysis.Compromising);
-    const a = normalizeSection(analysis.Accommod// 🧠 --- DEBUG-FRIENDLY ANALYZE ENDPOINT ---
+// 🧠 --- DEBUG-FRIENDLY ANALYZE ENDPOINT ---
 export async function POST(req) {
   try {
     const { conversation } = await req.json();
@@ -179,7 +141,6 @@ export async function POST(req) {
       });
     }
 
-    // --- 🔧 Normalize numeric data ---
     function toNumber(value, fallback = 0) {
       const n = parseFloat(String(value).replace(/[^\d.-]/g, ""));
       return isNaN(n) ? fallback : n;
@@ -212,14 +173,12 @@ export async function POST(req) {
     });
   } catch (err) {
     console.error("💥 [analyze] Fatal error:", err);
-    // ⬇️ Fallback dummy output, so frontend still renders
     return new Response(JSON.stringify(getDummyAnalysis(err.message)), {
       headers: { "Content-Type": "application/json" },
     });
   }
 }
 
-  // --- 🧩 Dummy fallback data ---
 function getDummyAnalysis(reason = "Fallback") {
   console.log(`⚙️ [analyze] Returning dummy analysis (${reason})`);
   return {
