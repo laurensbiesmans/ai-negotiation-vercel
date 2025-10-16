@@ -81,27 +81,51 @@ export default function Page() {
     return patterns.some((re) => re.test(t));
   }
 
-  // --- 📊 Run analysis ---
-  async function runAnalysis(messagesOverride) {
-    const arr = messagesOverride || messages;
-    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation: transcript }),
-      });
-      const data = await res.json();
-      setAnalysis(data);
-      return data;
-    } catch {
-      setAnalysis({ error: "Analysis failed." });
-      return null;
-    } finally {
-      setLoading(false);
-    }
+// --- 📊 Run analysis ---
+async function runAnalysis(messagesOverride) {
+  const arr = messagesOverride || messages;
+  const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
+  setLoading(true);
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation: transcript }),
+    });
+    const data = await res.json();
+
+    // 🧠 Fix: handle both {analysis: {...}} and plain {...}
+    const result = data.analysis || data;
+    console.log("🔍 Cleaned analysis result:", result);
+
+    setAnalysis(result);
+    return result;
+  } catch (err) {
+    console.error("❌ Analysis failed:", err);
+    setAnalysis({ error: "Analysis failed." });
+    return null;
+  } finally {
+    setLoading(false);
   }
+}
+
+// --- 📈 Chart data ---
+const getIndexData = (analysis) => {
+  if (!analysis) return [];
+
+  const avg = (obj = {}) => {
+    const vals = Object.values(obj).map((v) => parseFloat(v) || 0);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  };
+
+  return [
+    { name: "Competing", score: avg(analysis.Competing) },
+    { name: "Collaborating", score: avg(analysis.Collaborating) },
+    { name: "Compromising", score: avg(analysis.Compromising) },
+    { name: "Accommodating", score: avg(analysis.Accommodating) },
+    { name: "Avoiding", score: avg(analysis.Avoiding) },
+  ];
+};
 
   // --- 🧭 Send results to Qualtrics ---
   function sendToQualtrics(analysisData, agreementFlag) {
