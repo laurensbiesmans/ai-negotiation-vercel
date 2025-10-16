@@ -367,13 +367,3 @@ export default function Page() {
     </div>
   );
 }
-
-/* BONUS – Optional CSS for cleaner details marker */
-<style jsx global>{`
-  details summary {
-    list-style: none;
-  }
-  details summary::-webkit-details-marker {
-    display: none;
-  }
-`}</style>
