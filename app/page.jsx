@@ -161,7 +161,7 @@ export default function Page() {
         setInputDisabled(true);
         const done = [
           ...updated,
-          { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
+          { role: "system", content: "✅ Agreement reached. Negotiation concluded. Please move on to the next question." },
         ];
         setMessages(done);
         const analysisData = await runAnalysis(done);
@@ -196,7 +196,7 @@ export default function Page() {
     setInputDisabled(true);
     const done = [
       ...messages,
-      { role: "system", content: "✅ Conversation manually finished by participant." },
+      { role: "system", content: "✅ You have manually finished the conversation. Please move on to the next question." },
     ];
     setMessages(done);
     const analysisData = await runAnalysis(done);
