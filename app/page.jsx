@@ -208,7 +208,7 @@ export default function Page() {
   const getIndexData = (analysis) => {
     if (!analysis) return [];
     return [
-      { name: "Competiting", score: analysis.Competiting?.comp_index || 0 },
+      { name: "Competing", score: analysis.Competing?.comp_index || 0 },
       { name: "Collaborating", score: analysis.Collaborating?.collab_index || 0 },
       { name: "Compromising", score: analysis.Compromising?.compr_index || 0 },
       { name: "Accommodating", score: analysis.Accommodating?.accom_index || 0 },
