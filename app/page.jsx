@@ -43,7 +43,12 @@ export default function Page() {
 
   // --- 🧠 Agreement detection ---
   function normalize(text) {
-    return text.toLowerCase().replace(/[.,!?'"-]/g, " ").replace(/\s+/g, " ").trim();
+return text
+  .toLowerCase()
+  .replace(/[.,!?'"‘’“”-]/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
   }
 
   function detectAgreement(text) {
