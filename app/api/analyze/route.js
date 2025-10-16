@@ -78,9 +78,8 @@ Accommodating:
 - "accommodate_wishes" = "I tend to feel myself trying to accommodate the wishes of the organization."
 - "go_along_offer" = "Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered."
 
-Avoiding (reversed):
-- "avoid_negotiating" = "After receiving a job offer, I negotiated to get what I wanted. (reversed item)"
-Reverse-score this so that 1 = not avoiding, 7 = fully avoiding.
+Avoiding:
+- "avoid_negotiating" = "After receiving a job offer, I negotiated to get what I wanted."
 
 Return STRICT JSON in this format (no explanations, no preface):
 {
