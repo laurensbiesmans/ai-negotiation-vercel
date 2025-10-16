@@ -11,6 +11,7 @@ For each item, assign a score from 1 (strongly disagree) to 7 (strongly agree)
 based solely on observable negotiation behavior (what the candidate says/does).
 
 Definitions of the five dimensions (summarized):
+
 Collaborating:
 This strategy has also been referred to as integrating or problem solving. Relative to the dual concerns
 model, this strategy represents a high concern for attaining one’s own outcomes as well as a high
@@ -46,38 +47,39 @@ where an ‘‘avoid’’ approach would be effective, often in salary negotiat
 money on the table.’’ The dual concerns model considers the avoiding strategy as one that represents
 low concern about one’s own and other’s outcomes.
 
-These are the items:
+These are the items to rate (1–7 scale). Use these **exact JSON keys** and link each to its full original item text:
 
-Competing
-During negotiation, I try to persuade the organization to better my offer by threatening to withdraw from the process.
-In the negotiation process, I present information about my past record and qualifications to improve the quality of the offer extended to me.
-During negotiations, I make clear the value and benefit I could bring to the organization, in an attempt to influence the process.
-While negotiating, I do not take “no” for an answer.
-During the negotiation process, if I feel that the organization's offer is unreasonable, I make sure to make my feelings known.
-I present information about the market value of the position for which I was hired.
+Competing:
+- "persuade_with_threats" = "During negotiation, I try to persuade the organization to better my offer by threatening to withdraw from the process."
+- "present_qualifications" = "In the negotiation process, I present information about my past record and qualifications to improve the quality of the offer extended to me."
+- "communicate_value" = "During negotiations, I make clear the value and benefit I could bring to the organization, in an attempt to influence the process."
+- "persistent_no" = "While negotiating, I do not take “no” for an answer."
+- "express_unreasonableness" = "During the negotiation process, if I feel that the organization's offer is unreasonable, I make sure to make my feelings known."
+- "present_market_value" = "I present information about the market value of the position for which I was hired."
 
-Collaborating
-I try to negotiate an offer that is acceptable to both me and the organization.
-I try to integrate my interests with those of the organization to come up with an offer supported by both sides.
-I try to work together with the organization to come up with an acceptable offer.
-I exchange accurate information with the organization to come to a joint agreement.
-I try to bring all of our concerns out in the open so that the issues can be resolved in the best possible way.
-I collaborate with the organization to come up with an offer acceptable to both of us.
-I try to work with the organization to gain a thorough understanding of their position.
+Collaborating:
+- "mutual_acceptability" = "I try to negotiate an offer that is acceptable to both me and the organization."
+- "integrate_interests" = "I try to integrate my interests with those of the organization to come up with an offer supported by both sides."
+- "joint_offer" = "I try to work together with the organization to come up with an acceptable offer."
+- "accurate_information" = "I exchange accurate information with the organization to come to a joint agreement."
+- "open_concerns" = "I try to bring all of our concerns out in the open so that the issues can be resolved in the best possible way."
+- "collaborate_offer" = "I collaborate with the organization to come up with an offer acceptable to both of us."
+- "understand_position" = "I try to work with the organization to gain a thorough understanding of their position."
 
-Compromising
-I try to find a middle ground to reach an acceptable offer.
-I propose a middle ground to resolve the differences between our two sides.
-I tend to “give and take” so that compromise can be made.
+Compromising:
+- "find_middle_ground" = "I try to find a middle ground to reach an acceptable offer."
+- "propose_middle_ground" = "I propose a middle ground to resolve the differences between our two sides."
+- "give_and_take" = "I tend to “give and take” so that compromise can be made."
 
-Accommodating
-I initiate job negotiations, but I tend to give in to the demands of the organization.
-To reach an agreement, I tend to allow more concessions than the organization.
-I tend to feel myself trying to accommodate the wishes of the organization.
-Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered.
+Accommodating:
+- "give_in_to_demands" = "I initiate job negotiations, but I tend to give in to the demands of the organization."
+- "allow_concessions" = "To reach an agreement, I tend to allow more concessions than the organization."
+- "accommodate_wishes" = "I tend to feel myself trying to accommodate the wishes of the organization."
+- "go_along_offer" = "Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered."
 
-Avoiding
-After receiving a job offer, I negotiated to get what I wanted. (reversed item)
+Avoiding (reversed item):
+- "avoid_negotiating" = "After receiving a job offer, I negotiated to get what I wanted. (reversed item)"
+  → Reverse-score this item so that 1 = not avoiding (i.e., fully engaged in negotiation) and 7 = fully avoiding negotiation.
 
 Return STRICT JSON in this format:
 {
@@ -122,111 +124,62 @@ Rules:
 - Set "agreement" = "yes" if the conversation ends with clear mutual acceptance; otherwise "no".
 - If data are missing, use midpoint (4).
 - Compute each *_index as the mean of its items.
-- All numeric answers must be plain numbers (1–7), not text or words.
+- Reverse-code Avoiding as (8 - score).
+- All numeric answers must be plain numbers (1–7), not text.
 - Return valid JSON only.
 `;
 
 export async function POST(req) {
   try {
-    const { conversation, rid } = await req.json();
-
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), {
-        status: 500,
-      });
+    const { conversation } = await req.json();
+    if (!conversation) {
+      return Response.json({ error: "No conversation provided." }, { status: 400 });
     }
-
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const completion = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.1,
+      model: "gpt-4o-mini",
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: ANALYZE_PROMPT },
-        { role: "user", content: conversation || "" },
+        {
+          role: "system",
+          content:
+            "You are an expert organizational psychologist analyzing negotiation transcripts.",
+        },
+        {
+          role: "user",
+          content: `${ANALYZE_PROMPT}\n\nConversation:\n${conversation}`,
+        },
       ],
+      temperature: 0,
     });
 
-    const raw = completion.choices?.[0]?.message?.content || "{}";
-    const analysis = JSON.parse(raw);
+    const text = completion.choices[0]?.message?.content || "{}";
+    let analysis = JSON.parse(text);
 
-    // --- 🔧 Sanitize & normalize values ---
-    function toNumber(value, fallback = 0) {
-      const n = parseFloat(String(value).replace(/[^\d.-]/g, ""));
-      return isNaN(n) ? fallback : n;
+    // ✅ Compute index scores
+    function mean(obj) {
+      const vals = Object.values(obj || {}).map((v) => parseFloat(v) || 4);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 4;
     }
 
-    function normalizeSection(section = {}) {
-      const result = {};
-      for (const [k, v] of Object.entries(section)) {
-        result[k] = toNumber(v, 0);
-      }
-      return result;
-    }
+    const l = mean(analysis.Collaborating);
+    const c = mean(analysis.Competing);
+    const p = mean(analysis.Compromising);
+    const a = mean(analysis.Accommodating);
+    const v = mean(analysis.Avoiding);
 
-    // Normalize key values
-    const salary = toNumber(analysis.salary, 0);
-    const agreement =
-      analysis.agreement?.toLowerCase?.() === "yes" ? "yes" : "no";
+    analysis = {
+      ...analysis,
+      Collaborating: { ...analysis.Collaborating, collab_index: l },
+      Competing: { ...analysis.Competing, comp_index: c },
+      Compromising: { ...analysis.Compromising, compr_index: p },
+      Accommodating: { ...analysis.Accommodating, accom_index: a },
+      Avoiding: { ...analysis.Avoiding, avoid_index: v },
+    };
 
-    const c = normalizeSection(analysis.Competiting);
-    const l = normalizeSection(analysis.Collaborating);
-    const p = normalizeSection(analysis.Compromising);
-    const a = normalizeSection(analysis.Accommodating);
-    const v = normalizeSection(analysis.Avoiding);
-
-    // --- 🧩 Build Qualtrics redirect parameters ---
-    const params = new URLSearchParams({
-      rid: rid || "",
-      salary: String(salary),
-      agreement,
-      // Competition
-      persuade_with_threats: String(c.persuade_with_threats || 0),
-      present_qualifications: String(c.present_qualifications || 0),
-      communicate_value: String(c.communicate_value || 0),
-      persistent_no: String(c.persistent_no || 0),
-      express_unreasonableness: String(c.express_unreasonableness || 0),
-      present_market_value: String(c.present_market_value || 0),
-      // Collaboration
-      mutual_acceptability: String(l.mutual_acceptability || 0),
-      integrate_interests: String(l.integrate_interests || 0),
-      joint_offer: String(l.joint_offer || 0),
-      accurate_information: String(l.accurate_information || 0),
-      open_concerns: String(l.open_concerns || 0),
-      collaborate_offer: String(l.collaborate_offer || 0),
-      understand_position: String(l.understand_position || 0),
-      // Compromise
-      find_middle_ground: String(p.find_middle_ground || 0),
-      propose_middle_ground: String(p.propose_middle_ground || 0),
-      give_and_take: String(p.give_and_take || 0),
-      // Accommodation
-      give_in_to_demands: String(a.give_in_to_demands || 0),
-      allow_concessions: String(a.allow_concessions || 0),
-      accommodate_wishes: String(a.accommodate_wishes || 0),
-      go_along_offer: String(a.go_along_offer || 0),
-      // Avoidance
-      avoid_negotiating: String(v.avoid_negotiating || 0),
-    });
-
-    // --- 🚀 Redirect to Qualtrics continuation ---
-    const qualtricsBase =
-      "https://feb.qualtrics.com/jfe/form/SV_3k1cnUM6cqEVGL4?Q_JUMP_TO=workexp"; // <-- update target question ID if needed
-    const redirectUrl = `${qualtricsBase}&${params.toString()}`;
-
-    // Return response to frontend
-    return new Response(
-      JSON.stringify({
-        status: "ok",
-        redirect: redirectUrl,
-        analysis,
-      }),
-      { headers: { "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("❌ Analyze route error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-    });
+    return Response.json(analysis);
+  } catch (err) {
+    console.error("❌ Error in /api/analyze:", err);
+    return Response.json({ error: "Analysis failed." }, { status: 500 });
   }
 }
