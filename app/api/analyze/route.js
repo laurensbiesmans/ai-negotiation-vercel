@@ -131,11 +131,15 @@ export async function POST(req) {
     }
 
     // ✅ Reverse-score Avoiding (1 = not avoiding, 7 = fully avoiding)
-if (analysis?.Avoiding?.avoid_negotiating !== undefined) {
-  const raw = parseFloat(analysis.Avoiding.avoid_negotiating);
-  const val = isNaN(raw) ? 4 : raw;
-  const reversed = Math.min(Math.max(8 - val, 1), 7);
-  analysis.Avoiding.avoid_negotiating = reversed;
+if (analysis?.Avoiding) {
+  // Probeer de juiste key te vinden
+  const val =
+    parseFloat(
+      analysis.Avoiding.avoid_negotiating ??
+      Object.values(analysis.Avoiding)[0] // fallback: pak eerste numerieke waarde
+    ) || 4;
+
+  analysis.Avoiding.avoid_negotiating = Math.min(Math.max(8 - val, 1), 7);
 }
 
 
