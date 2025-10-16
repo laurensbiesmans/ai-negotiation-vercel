@@ -77,7 +77,7 @@ I tend to feel myself trying to accommodate the wishes of the organization.
 Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered.
 
 Avoiding
-After receiving a job offer, I negotiated to get what I wanted.
+After receiving a job offer, I negotiated to get what I wanted. (reversed item)
 
 Return STRICT JSON in this format:
 {
