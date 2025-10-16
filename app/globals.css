@@ -9,11 +9,26 @@ html, body { height: 100%; background-color: #f3f4f6; }
 .hr-bubble { @apply bg-gray-200 text-gray-800 self-start rounded-bl-none; }
 .user-bubble { @apply bg-blue-600 text-white self-end rounded-br-none; }
 
-/* Optional: clean up <details> markers */
+/* ▼ Clean toggle marker + rotation */
 details summary {
   list-style: none;
   cursor: pointer;
+  position: relative;
+  padding-left: 1.2rem;
 }
+
 details summary::-webkit-details-marker {
   display: none;
+}
+
+details summary::before {
+  content: "▶";
+  position: absolute;
+  left: 0;
+  transition: transform 0.2s ease;
+}
+
+details[open] summary::before {
+  transform: rotate(90deg);
+  content: "▼";
 }
