@@ -41,7 +41,7 @@ export default function Page() {
     metaRef.current.cond = p.get("cond") || null;
   }, []);
 
-  // --- 🧠 Agreement detection (AI-only phrasing) ---
+  // --- 🧠 Agreement detection ---
   function normalize(text) {
     return text.toLowerCase().replace(/[.,!?'"-]/g, " ").replace(/\s+/g, " ").trim();
   }
@@ -64,6 +64,65 @@ export default function Page() {
       /\bwe'?re excited to have you join\b/,
     ];
     return patterns.some((re) => re.test(t));
+  }
+
+  function detectNoAgreement(text) {
+    const t = normalize(text);
+    const patterns = [
+      /\bno agreement\b/,
+      /\bwe (cannot|can't) reach an agreement\b/,
+      /\bwe (cannot|can't) proceed\b/,
+      /\bwe (won't|will not) be able to move forward\b/,
+      /\bwe have to close this process\b/,
+      /\bwe will (withdraw|retract) the offer\b/,
+      /\bi understand you (decline|are declining)\b/,
+      /\bthank you for your time\b.*\bwe (cannot|can't) continue\b/,
+    ];
+    return patterns.some((re) => re.test(t));
+  }
+
+  // --- 📊 Run analysis ---
+  async function runAnalysis(messagesOverride) {
+    const arr = messagesOverride || messages;
+    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation: transcript }),
+      });
+      const data = await res.json();
+      setAnalysis(data);
+      return data;
+    } catch {
+      setAnalysis({ error: "Analysis failed." });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // --- 🧭 Send results to Qualtrics ---
+  function sendToQualtrics(analysisData, agreementFlag) {
+    if (window.parent && window.parent.postMessage) {
+      window.parent.postMessage(
+        {
+          type: "nextQuestion",
+          embeddedData: {
+            rid: metaRef.current.rid || "TEST",
+            agreement: agreementFlag,
+            salary: analysisData?.salary || "0",
+            ...analysisData.Competition,
+            ...analysisData.Collaboration,
+            ...analysisData.Compromise,
+            ...analysisData.Accommodation,
+            ...analysisData.Avoidance,
+          },
+        },
+        "*"
+      );
+    }
   }
 
   // --- 💬 Send message handler ---
@@ -90,7 +149,6 @@ export default function Page() {
 
       const data = await res.json();
       const hrText = data?.message || data?.reply || data?.error || "No response.";
-
       const updated = [...newMessages, { role: "assistant", content: hrText }];
       setMessages(updated);
 
@@ -98,37 +156,29 @@ export default function Page() {
         negStateRef.current = data.state;
       }
 
-      // 🧠 Detect AI agreement
+      // ✅ Auto-closure: agreement
       if (detectAgreement(hrText)) {
         setInputDisabled(true);
-        const doneMessages = [
+        const done = [
           ...updated,
           { role: "system", content: "✅ Agreement reached. Negotiation concluded." },
         ];
-        setMessages(doneMessages);
+        setMessages(done);
+        const analysisData = await runAnalysis(done);
+        sendToQualtrics(analysisData, "yes");
+        return;
+      }
 
-        const analysisData = await runAnalysis(doneMessages);
-
-        // 🧩 Instead of redirecting — tell Qualtrics to continue the survey
-        if (window.parent && window.parent.postMessage) {
-          window.parent.postMessage(
-            {
-              type: "nextQuestion",
-              embeddedData: {
-                rid: metaRef.current.rid || "TEST",
-                agreement: "yes",
-                salary: analysisData?.salary || "0",
-                ...analysisData.Competition,
-                ...analysisData.Collaboration,
-                ...analysisData.Compromise,
-                ...analysisData.Accommodation,
-                ...analysisData.Avoidance,
-              },
-            },
-            "*"
-          );
-        }
-
+      // ❌ Auto-closure: no agreement
+      if (detectNoAgreement(hrText)) {
+        setInputDisabled(true);
+        const done = [
+          ...updated,
+          { role: "system", content: "❌ No agreement. Negotiation concluded." },
+        ];
+        setMessages(done);
+        const analysisData = await runAnalysis(done);
+        sendToQualtrics(analysisData, "no");
         return;
       }
     } catch {
@@ -136,31 +186,22 @@ export default function Page() {
         ...prev,
         { role: "assistant", content: "Connection error. Please try again." },
       ]);
-    }
-
-    setLoading(false);
-  }
-
-  // --- 📊 Run analysis (AI evaluation) ---
-  async function runAnalysis(messagesOverride) {
-    const arr = messagesOverride || messages;
-    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation: transcript }),
-      });
-      const data = await res.json();
-      setAnalysis(data);
-      return data; // ✅ Return for message event
-    } catch {
-      setAnalysis({ error: "Analysis failed." });
-      return null;
     } finally {
       setLoading(false);
     }
+  }
+
+  // --- 🖐️ Manual finish ---
+  async function finishManually() {
+    setInputDisabled(true);
+    const done = [
+      ...messages,
+      { role: "system", content: "✅ Conversation manually finished by participant." },
+    ];
+    setMessages(done);
+    const analysisData = await runAnalysis(done);
+    const agreementFlag = analysisData?.agreement || "manual";
+    sendToQualtrics(analysisData, agreementFlag);
   }
 
   // --- 📈 Chart data ---
@@ -200,10 +241,10 @@ export default function Page() {
         <div ref={bottomRef} />
       </div>
 
-      {/* ✏️ Input bar */}
+      {/* ✏️ Input bar + Finish */}
       <form
         onSubmit={sendMessage}
-        className="flex items-center gap-2 border-t border-gray-200 p-3 bg-gray-50"
+        className="flex items-center gap-2 border-t border-gray-200 p-3 bg-gray-50 flex-wrap"
       >
         <input
           value={input}
@@ -219,13 +260,14 @@ export default function Page() {
         >
           Send
         </button>
+
         <button
           type="button"
-          onClick={() => runAnalysis()}
-          disabled={loading}
-          className="px-4 py-2 bg-gray-800 text-white rounded-full text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
+          onClick={finishManually}
+          disabled={loading || inputDisabled}
+          className="px-4 py-2 bg-emerald-600 text-white rounded-full text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
         >
-          Analyze
+          Finish conversation
         </button>
       </form>
 
