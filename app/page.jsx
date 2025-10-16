@@ -97,8 +97,11 @@ export default function Page() {
         body: JSON.stringify({ conversation: transcript }),
       });
       const data = await res.json();
+
+      // ✅ pak het binnenste object als het onder "analysis" zit
       const result = data.analysis || data;
-      console.log("🧩 Cleaned analysis result:", result);
+      console.log("🔍 Cleaned analysis result:", result);
+
       setAnalysis(result);
       return result;
     } catch (err) {
@@ -164,6 +167,7 @@ export default function Page() {
         negStateRef.current = data.state;
       }
 
+      // ✅ Auto-closure: agreement
       if (detectAgreement(hrText)) {
         setInputDisabled(true);
         const done = [
@@ -180,6 +184,7 @@ export default function Page() {
         return;
       }
 
+      // ❌ Auto-closure: no agreement
       if (detectNoAgreement(hrText)) {
         setInputDisabled(true);
         const done = [
@@ -218,7 +223,7 @@ export default function Page() {
     sendToQualtrics(analysisData, agreementFlag);
   }
 
-  // --- 📈 Chart data ---
+  // --- 📈 Chart data (exactly one definition!) ---
   const getIndexData = (analysis) => {
     if (!analysis) return [];
 
@@ -236,62 +241,6 @@ export default function Page() {
       { name: "Accommodating", score: avg(analysis.Accommodating) },
       { name: "Avoiding", score: avg(analysis.Avoiding) },
     ];
-  };
-
-  // --- 📋 Full item texts for collapsible list ---
-  const ITEM_LABELS = {
-    Competing: {
-      persuade_with_threats:
-        "During negotiation, I try to persuade the organization to better my offer by threatening to withdraw from the process.",
-      present_qualifications:
-        "In the negotiation process, I present information about my past record and qualifications to improve the quality of the offer extended to me.",
-      communicate_value:
-        "During negotiations, I make clear the value and benefit I could bring to the organization, in an attempt to influence the process.",
-      persistent_no:
-        "While negotiating, I do not take “no” for an answer.",
-      express_unreasonableness:
-        "During the negotiation process, if I feel that the organization's offer is unreasonable, I make sure to make my feelings known.",
-      present_market_value:
-        "I present information about the market value of the position for which I was hired.",
-    },
-    Collaborating: {
-      mutual_acceptability:
-        "I try to negotiate an offer that is acceptable to both me and the organization.",
-      integrate_interests:
-        "I try to integrate my interests with those of the organization to come up with an offer supported by both sides.",
-      joint_offer:
-        "I try to work together with the organization to come up with an acceptable offer.",
-      accurate_information:
-        "I exchange accurate information with the organization to come to a joint agreement.",
-      open_concerns:
-        "I try to bring all of our concerns out in the open so that the issues can be resolved in the best possible way.",
-      collaborate_offer:
-        "I collaborate with the organization to come up with an offer acceptable to both of us.",
-      understand_position:
-        "I try to work with the organization to gain a thorough understanding of their position.",
-    },
-    Compromising: {
-      find_middle_ground:
-        "I try to find a middle ground to reach an acceptable offer.",
-      propose_middle_ground:
-        "I propose a middle ground to resolve the differences between our two sides.",
-      give_and_take:
-        "I tend to “give and take” so that compromise can be made.",
-    },
-    Accommodating: {
-      give_in_to_demands:
-        "I initiate job negotiations, but I tend to give in to the demands of the organization.",
-      allow_concessions:
-        "To reach an agreement, I tend to allow more concessions than the organization.",
-      accommodate_wishes:
-        "I tend to feel myself trying to accommodate the wishes of the organization.",
-      go_along_offer:
-        "Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered.",
-    },
-    Avoiding: {
-      avoid_negotiating:
-        "After receiving a job offer, I negotiated to get what I wanted. (reversed item)",
-    },
   };
 
   // --- 🧩 Render ---
@@ -366,48 +315,13 @@ export default function Page() {
                 <XAxis dataKey="name" />
                 <YAxis domain={[1, 7]} />
                 <Tooltip />
-                <Bar dataKey="score" fill="#2563eb" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="score" radius={[6, 6, 0, 0]} fill="#2563eb" />
               </BarChart>
             </ResponsiveContainer>
           </div>
           <p className="mt-3 text-gray-600 italic">
             {analysis.notes || "No qualitative summary available."}
           </p>
-
-          {/* ▼ Collapsible: item scores per dimension */}
-          <details className="mt-4">
-            <summary className="cursor-pointer text-gray-700 font-medium">
-              Show item scores (per dimension)
-            </summary>
-
-            {[
-              ["Competing", analysis?.Competing],
-              ["Collaborating", analysis?.Collaborating],
-              ["Compromising", analysis?.Compromising],
-              ["Accommodating", analysis?.Accommodating],
-              ["Avoiding", analysis?.Avoiding],
-            ].map(([label, section]) => (
-              <div key={label} className="mt-3">
-                <div className="font-semibold text-gray-800">{label}</div>
-                {section && Object.keys(section).length > 0 ? (
-                  <ul className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-                    {Object.entries(section).map(([k, v]) => (
-                      <li key={k} className="flex justify-between">
-                        <span className="text-gray-600">
-                          {ITEM_LABELS?.[label]?.[k] || k}
-                        </span>
-                        <span className="font-medium">{Number(v) || 0}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-gray-400 text-sm">
-                    No items scored.
-                  </div>
-                )}
-              </div>
-            ))}
-          </details>
         </div>
       )}
     </div>
