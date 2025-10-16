@@ -81,27 +81,66 @@ export default function Page() {
     return patterns.some((re) => re.test(t));
   }
 
-  // --- 📊 Run analysis ---
-  async function runAnalysis(messagesOverride) {
-    const arr = messagesOverride || messages;
-    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation: transcript }),
-      });
-      const data = await res.json();
-      setAnalysis(data);
-      return data;
-    } catch {
-      setAnalysis({ error: "Analysis failed." });
-      return null;
-    } finally {
-      setLoading(false);
-    }
+// --- 🔧 Analysis helpers (normalize + indices) ---
+function normalizeAnalysis(a = {}) {
+  // Map mogelijke varianten naar vaste namen
+  const out = { ...a };
+  if (a.Competing && !a.Competition) out.Competition = a.Competing;
+  if (a.Collaborating && !a.Collaboration) out.Collaboration = a.Collaborating;
+
+  // Zorg dat alle secties bestaan (lege objecten als fallback)
+  out.Competition   = out.Competition   || {};
+  out.Collaboration = out.Collaboration || {};
+  out.Compromise    = out.Compromise    || {};
+  out.Accommodation = out.Accommodation || {};
+  out.Avoidance     = out.Avoidance     || {};
+
+  // Compute indices (gemiddelde van items) voor de grafiek
+  function idx(section) {
+    const vals = Object.values(section || {})
+      .map((x) => Number(x))
+      .filter((n) => !Number.isNaN(n));
+    if (!vals.length) return 0;
+    return +(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(2);
   }
+  out._indices = {
+    Competition:   idx(out.Competition),
+    Collaboration: idx(out.Collaboration),
+    Compromise:    idx(out.Compromise),
+    Accommodation: idx(out.Accommodation),
+    Avoidance:     idx(out.Avoidance),
+  };
+
+  // Notes/salary/agreement als fallback
+  out.notes = typeof out.notes === "string" ? out.notes : "";
+  out.salary = out.salary ?? 0;
+  out.agreement = out.agreement ?? "no";
+  return out;
+}
+  
+  // --- 📊 Run analysis (AI evaluation) ---
+async function runAnalysis(messagesOverride) {
+  const arr = messagesOverride || messages;
+  const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
+  setLoading(true);
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation: transcript }),
+    });
+    const data = await res.json();
+    const normalized = normalizeAnalysis(data);
+    setAnalysis(normalized);
+    return normalized; // gebruik deze in sendToQualtrics
+  } catch {
+    setAnalysis({ error: "Analysis failed." });
+    return null;
+  } finally {
+    setLoading(false);
+  }
+}
+
 
   // --- 🧭 Send results to Qualtrics ---
   function sendToQualtrics(analysisData, agreementFlag) {
@@ -204,17 +243,17 @@ export default function Page() {
     sendToQualtrics(analysisData, agreementFlag);
   }
 
-  // --- 📈 Chart data ---
-  const getIndexData = (analysis) => {
-    if (!analysis) return [];
-    return [
-      { name: "Competition", score: analysis.Competition?.comp_index || 0 },
-      { name: "Collaboration", score: analysis.Collaboration?.collab_index || 0 },
-      { name: "Compromise", score: analysis.Compromise?.compr_index || 0 },
-      { name: "Accommodation", score: analysis.Accommodation?.accom_index || 0 },
-      { name: "Avoidance", score: analysis.Avoidance?.avoid_index || 0 },
-    ];
-  };
+ // --- 📈 Chart data ---
+const getIndexData = (analysis) => {
+  if (!analysis || !analysis._indices) return [];
+  return [
+    { name: "Competition",   score: analysis._indices.Competition   || 0 },
+    { name: "Collaboration", score: analysis._indices.Collaboration || 0 },
+    { name: "Compromise",    score: analysis._indices.Compromise    || 0 },
+    { name: "Accommodation", score: analysis._indices.Accommodation || 0 },
+    { name: "Avoidance",     score: analysis._indices.Avoidance     || 0 },
+  ];
+};
 
   // --- 🧩 Render ---
   return (
@@ -271,26 +310,68 @@ export default function Page() {
         </button>
       </form>
 
-      {/* 📊 AI Analysis */}
-      {analysis && (
-        <div className="p-4 bg-gray-50 border-t border-gray-200 text-sm">
-          <h2 className="text-base font-semibold mb-2">Negotiation Style Profile</h2>
-          <div className="w-full h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={getIndexData(analysis)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis domain={[1, 7]} />
-                <Tooltip />
-                <Bar dataKey="score" fill="#2563eb" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="mt-3 text-gray-600 italic">
-            {analysis.notes || "No qualitative summary available."}
-          </p>
-        </div>
-      )}
+     {analysis && (
+  <div className="p-4 bg-gray-50 border-t border-gray-200 text-sm">
+    <h2 className="text-base font-semibold mb-2">Negotiation Style Profile</h2>
+
+    <div className="w-full h-72">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={getIndexData(analysis)}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis domain={[1, 7]} />
+          <Tooltip />
+          <Bar dataKey="score" fill="#2563eb" radius={[6, 6, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
-  );
-}
+
+    <p className="mt-3 text-gray-600 italic">
+      {analysis.notes || "No qualitative summary available."}
+    </p>
+
+    {/* Uitklapbare lijst met items per dimensie */}
+    <details className="mt-4">
+      <summary className="cursor-pointer text-gray-700 font-medium">
+        Show item scores (per dimension)
+      </summary>
+
+      {[
+        ["Competition", analysis.Competition],
+        ["Collaboration", analysis.Collaboration],
+        ["Compromise", analysis.Compromise],
+        ["Accommodation", analysis.Accommodation],
+        ["Avoidance", analysis.Avoidance],
+      ].map(([label, section]) => (
+        <div key={label} className="mt-3">
+          <div className="font-semibold text-gray-800">{label}</div>
+          {section && Object.keys(section).length > 0 ? (
+            <ul className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+              {Object.entries(section).map(([k, v]) => (
+                <li key={k} className="flex justify-between">
+                  <span className="text-gray-600">{k}</span>
+                  <span className="font-medium">{Number(v) || 0}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-gray-400 text-sm">No items scored.</div>
+          )}
+        </div>
+      ))}
+
+      {/* Desgewenst ook de ruwe JSON */}
+      <div className="mt-4">
+        <details>
+          <summary className="cursor-pointer text-gray-500 text-xs">
+            Show raw JSON
+          </summary>
+          <pre className="mt-2 text-xs bg-white border border-gray-200 p-2 rounded overflow-x-auto">
+            {JSON.stringify(analysis, null, 2)}
+          </pre>
+        </details>
+      </div>
+    </details>
+  </div>
+)}
+
