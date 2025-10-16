@@ -374,4 +374,7 @@ const getIndexData = (analysis) => {
     </details>
   </div>
 )}
+);
+}
+
 
