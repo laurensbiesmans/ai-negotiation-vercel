@@ -131,11 +131,14 @@ export async function POST(req) {
       return Response.json({ error: "Invalid JSON returned." }, { status: 500 });
     }
 
-    // ✅ Reverse-code Avoiding
-    if (analysis?.Avoiding?.avoid_negotiating) {
-      const val = parseFloat(analysis.Avoiding.avoid_negotiating);
-      analysis.Avoiding.avoid_negotiating = 8 - (isNaN(val) ? 4 : val);
-    }
+    // ✅ Reverse-score Avoiding (1 = not avoiding, 7 = fully avoiding)
+if (analysis?.Avoiding?.avoid_negotiating !== undefined) {
+  const raw = parseFloat(analysis.Avoiding.avoid_negotiating);
+  const val = isNaN(raw) ? 4 : raw;
+  const reversed = Math.min(Math.max(8 - val, 1), 7);
+  analysis.Avoiding.avoid_negotiating = reversed;
+}
+
 
     // ✅ Compute index scores
     const mean = (obj) => {
