@@ -95,12 +95,13 @@ Rules:
 
 export async function POST(req) {
   try {
-    const { conversation, rid } = await req.json();
+    const { conversation } = await req.json();
 
     if (!process.env.OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), {
-        status: 500,
-      });
+      return new Response(
+        JSON.stringify({ error: "Missing OPENAI_API_KEY" }),
+        { status: 500 }
+      );
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -143,20 +144,25 @@ export async function POST(req) {
     const a = normalizeSection(analysis.Accommodating);
     const v = normalizeSection(analysis.Avoiding);
 
-    // --- ✅ Return pure analysis to frontend (no redirect) ---
-const cleaned = {
-  salary,
-  agreement,
-  Competing: c,
-  Collaborating: l,
-  Compromising: p,
-  Accommodating: a,
-  Avoiding: v,
-  notes: analysis.notes || "",
-};
+    const cleaned = {
+      salary,
+      agreement,
+      Competing: c,
+      Collaborating: l,
+      Compromising: p,
+      Accommodating: a,
+      Avoiding: v,
+      notes: analysis.notes || "",
+    };
 
-  return new Response(JSON.stringify(cleaned), {
-    headers: { "Content-Type": "application/json" },
+    return new Response(JSON.stringify(cleaned), {
+      headers: { "Content-Type": "application/json" },
     });
+  } catch (err) {
+    console.error("Error in /api/analyze:", err);
+    return new Response(
+      JSON.stringify({ error: "Internal Server Error" }),
+      { status: 500 }
+    );
   }
-}
+} // 👈 DIT SLUIT DE FUNCTIE CORRECT AF
