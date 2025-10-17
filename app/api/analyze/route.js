@@ -79,7 +79,7 @@ Accommodating:
 - "go_along_offer" = "Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered."
 
 Avoiding:
-- "avoid_negotiating" = "After receiving a job offer, I negotiated to get what I wanted."
+- "avoid_negotiating" = "After receiving a job offer, I negotiated to get what I wanted." (you have to reverse the score on this item)
 
 Return STRICT JSON in this format (no explanations, no preface):
 {
