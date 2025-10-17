@@ -68,6 +68,7 @@ export default function Page() {
       /\bthe agreement is complete\b/,
       /\bwe'?re excited to have you join\b/,
       /\bthank you for (your )?acceptance\b/,
+      /\bwe'?re pleased to confirm your salary\b/,
       /\blook forward to having you (on board|join|in the team)\b/,
     ];
     return patterns.some((re) => re.test(t));
