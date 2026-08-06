@@ -7,11 +7,11 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const ANALYZE_PROMPT = `
 You are a behavioral researcher analyzing a salary negotiation transcript.
 
-Use the conversation to rate the candidate on the following five conflict-handling styles (Marks & Harold, 2011).
+Use the conversation to rate the candidate on the following four negotiating styles (Marks & Harold, 2011).
 For each item, assign a score from 1 (strongly disagree) to 7 (strongly agree)
 based solely on observable negotiation behavior (what the candidate says/does).
 
-Definitions of the five dimensions (summarized):
+Definitions of the four negotiating styles (summarized):
 
 Collaborating:
 This strategy has also been referred to as integrating or problem solving. Relative to the dual concerns
@@ -42,11 +42,6 @@ this strategy has disadvantages when one is trying to reach agreement on issues 
 strategy may be appropriate in situations where one’s focus is on the longer term relationship or one is
 negotiating from a position of limited power.
 
-Avoiding:
-This approach involves dodging situations that would involve negotiation. While there are situations
-where an ‘‘avoid’’ approach would be effective, often in salary negotiations an avoid approach ‘‘leaves
-money on the table.’’ The dual concerns model considers the avoiding strategy as one that represents
-low concern about one’s own and other’s outcomes.
 
 These are the items and exact JSON keys:
 
@@ -78,9 +73,6 @@ Accommodating:
 - "accommodate_wishes" = "I tend to feel myself trying to accommodate the wishes of the organization."
 - "go_along_offer" = "Though I attempt to negotiate, I tend to find myself going along with much of what the organization initially offered."
 
-Avoiding:
-- "avoid_negotiating" = "After receiving a job offer, I negotiated to get what I wanted." (you have to reverse the score on this item)
-
 Return STRICT JSON in this format (no explanations, no preface):
 {
   "salary": number,
@@ -89,7 +81,6 @@ Return STRICT JSON in this format (no explanations, no preface):
   "Collaborating": {...},
   "Compromising": {...},
   "Accommodating": {...},
-  "Avoiding": {...},
   "notes": "concise summary"
 }
 `;
@@ -130,19 +121,6 @@ export async function POST(req) {
       return Response.json({ error: "Invalid JSON returned." }, { status: 500 });
     }
 
-    // ✅ Reverse-score Avoiding (1 = not avoiding, 7 = fully avoiding)
-if (analysis?.Avoiding) {
-  // Probeer de juiste key te vinden
-  const val =
-    parseFloat(
-      analysis.Avoiding.avoid_negotiating ??
-      Object.values(analysis.Avoiding)[0] // fallback: pak eerste numerieke waarde
-    ) || 4;
-
-  analysis.Avoiding.avoid_negotiating = Math.min(Math.max(8 - val, 1), 7);
-}
-
-
     // ✅ Compute index scores
     const mean = (obj) => {
       const vals = Object.values(obj || {}).map((v) => parseFloat(v) || 4);
@@ -157,7 +135,6 @@ if (analysis?.Avoiding) {
     addIndex("Collaborating", "collab_index");
     addIndex("Compromising", "compr_index");
     addIndex("Accommodating", "accom_index");
-    addIndex("Avoiding", "avoid_index");
 
     return Response.json(analysis);
   } catch (err) {
