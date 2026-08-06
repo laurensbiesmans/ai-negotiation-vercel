@@ -162,6 +162,8 @@ export default function Page() {
           n_user_messages: nUser,
           started_at: startedAtRef.current,
           finished_at: new Date().toISOString(),
+          currency: metaRef.current.currency,
+          anchor: metaRef.current.anchor,
         }),
       });
     } catch (err) {
