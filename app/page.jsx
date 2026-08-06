@@ -10,22 +10,25 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+// --- Currency + anchor helpers ---
+const CUR_SYMBOL = { GBP: "£", USD: "$" };
+const round25 = (x) => Math.round(Number(x) / 25) * 25;
+
+function buildOpening(anchor, cur) {
+  const s = CUR_SYMBOL[cur] || "£";
+  return `Thank you for joining me to discuss your contract, as we would like to offer you this position. Based on your experience and fit for the role, we would like to offer you ${s}${anchor} net per month, together with a standard benefits package and paid leave. How would you like to respond?`;
+}
+
 export default function Page() {
   // --- State ---
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Thank you for joining me in this conversation to discuss your contract as we would like to offer you this job. Based on your relevant experience and match with this role, we would like to offer you a salary of €2500 net per month with standard benefits, such as 20 days paid leave, hospitalisation, and meal vouchers. How would you like to respond?",
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [inputDisabled, setInputDisabled] = useState(false);
 
   const negStateRef = useRef({});
-  const metaRef = useRef({ rid: null, cond: null });
+  const metaRef = useRef({ rid: null, cond: null, anchor: 2500, currency: "GBP" });
   const bottomRef = useRef(null);
   const startedAtRef = useRef(null);
 
@@ -40,6 +43,12 @@ export default function Page() {
     const p = new URLSearchParams(window.location.search);
     metaRef.current.rid = p.get("rid") || null;
     metaRef.current.cond = p.get("cond") || null;
+    const rawAnchor = parseFloat(p.get("anchor"));
+    const anchor = round25(isNaN(rawAnchor) ? 2500 : rawAnchor);
+    const currency = p.get("cur") || "GBP";
+    metaRef.current.anchor = anchor;
+    metaRef.current.currency = currency;
+    setMessages([{ role: "assistant", content: buildOpening(anchor, currency) }]);
   }, []);
 
   // --- 🧠 Agreement detection ---
@@ -135,31 +144,31 @@ export default function Page() {
       );
     }
   }
-// --- 💾 Save full conversation to database ---
-async function saveConversation(convo, analysisData, agreementFlag) {
-  try {
-    const nUser = convo.filter((m) => m.role === "user").length;
-    await fetch("/api/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        rid: metaRef.current.rid || "TEST",
-        cond: metaRef.current.cond || null,
-        salary: analysisData?.salary ?? null,
-        agreement: agreementFlag,
-        transcript: convo,
-        analysis: analysisData || null,
-        n_user_messages: nUser,
-        started_at: startedAtRef.current,
-        finished_at: new Date().toISOString(),
-      }),
-    });
-  } catch (err) {
-    console.error("❌ saveConversation failed:", err);
-  }
-}
 
-  
+  // --- 💾 Save full conversation to database ---
+  async function saveConversation(convo, analysisData, agreementFlag) {
+    try {
+      const nUser = convo.filter((m) => m.role === "user").length;
+      await fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rid: metaRef.current.rid || "TEST",
+          cond: metaRef.current.cond || null,
+          salary: analysisData?.salary ?? null,
+          agreement: agreementFlag,
+          transcript: convo,
+          analysis: analysisData || null,
+          n_user_messages: nUser,
+          started_at: startedAtRef.current,
+          finished_at: new Date().toISOString(),
+        }),
+      });
+    } catch (err) {
+      console.error("❌ saveConversation failed:", err);
+    }
+  }
+
   // --- 💬 Send message handler ---
   async function sendMessage(e) {
     e?.preventDefault?.();
@@ -180,6 +189,8 @@ async function saveConversation(convo, analysisData, agreementFlag) {
           state: negStateRef.current || {},
           rid: metaRef.current.rid,
           cond: metaRef.current.cond,
+          anchor: metaRef.current.anchor,
+          currency: metaRef.current.currency,
         }),
       });
 
@@ -248,7 +259,7 @@ async function saveConversation(convo, analysisData, agreementFlag) {
     setMessages(done);
     const analysisData = await runAnalysis(done);
     const agreementFlag = analysisData?.agreement || "manual";
-     await saveConversation(done, analysisData, agreementFlag);
+    await saveConversation(done, analysisData, agreementFlag);
     sendToQualtrics(analysisData, agreementFlag);
   }
 
@@ -346,38 +357,39 @@ async function saveConversation(convo, analysisData, agreementFlag) {
             </ResponsiveContainer>
           </div>
           {/* --- Summary info (salary & agreement) --- */}
-<div className="mt-3 text-gray-700 text-sm">
-  {analysis.salary ? (
-    <p>
-      <strong>Final salary:</strong> €{analysis.salary.toLocaleString("en-US")}
-    </p>
-  ) : (
-    <p>
-      <strong>Final salary:</strong> Not specified
-    </p>
-  )}
+          <div className="mt-3 text-gray-700 text-sm">
+            {analysis.salary ? (
+              <p>
+                <strong>Final salary:</strong>{" "}
+                {(CUR_SYMBOL[metaRef.current.currency] || "£")}
+                {analysis.salary.toLocaleString("en-US")}
+              </p>
+            ) : (
+              <p>
+                <strong>Final salary:</strong> Not specified
+              </p>
+            )}
 
-  <p>
-    <strong>Agreement reached:</strong>{" "}
-    {analysis.agreement === "yes"
-      ? "✅ Yes"
-      : analysis.agreement === "no"
-      ? "❌ No"
-      : "Manual / Unclear"}
-  </p>
-</div>
+            <p>
+              <strong>Agreement reached:</strong>{" "}
+              {analysis.agreement === "yes"
+                ? "✅ Yes"
+                : analysis.agreement === "no"
+                ? "❌ No"
+                : "Manual / Unclear"}
+            </p>
+          </div>
 
-{/* --- Qualitative summary --- */}
-<p className="mt-3 text-gray-600 italic">
-  {analysis.notes || "No qualitative summary available."}
-</p>
-
+          {/* --- Qualitative summary --- */}
+          <p className="mt-3 text-gray-600 italic">
+            {analysis.notes || "No qualitative summary available."}
+          </p>
 
           {/* ▼ Detailed item scores */}
           <details className="mt-4">
             <summary className="cursor-pointer font-medium text-gray-700">
-  Show item scores (per dimension)
-</summary>
+              Show item scores (per dimension)
+            </summary>
 
             <div className="mt-2 space-y-4 text-sm text-gray-700">
               {[
@@ -398,12 +410,6 @@ async function saveConversation(convo, analysisData, agreementFlag) {
                             <span className="text-gray-900">
                               {typeof value === "number" ? value.toFixed(2) : value}
                             </span>
-                            {dim === "Avoiding" && key === "avoid_negotiating" && (
-                              <span className="text-gray-500 text-xs italic">
-                                {" "}
-                                (reversed item)
-                              </span>
-                            )}
                           </li>
                         ))}
                     </ul>
