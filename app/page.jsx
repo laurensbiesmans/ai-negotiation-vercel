@@ -27,6 +27,7 @@ export default function Page() {
   const negStateRef = useRef({});
   const metaRef = useRef({ rid: null, cond: null });
   const bottomRef = useRef(null);
+  const startedAtRef = useRef(null);
 
   // --- Scroll automatically on new message ---
   useEffect(() => {
@@ -135,11 +136,36 @@ export default function Page() {
       );
     }
   }
+// --- 💾 Save full conversation to database ---
+async function saveConversation(convo, analysisData, agreementFlag) {
+  try {
+    const nUser = convo.filter((m) => m.role === "user").length;
+    await fetch("/api/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rid: metaRef.current.rid || "TEST",
+        cond: metaRef.current.cond || null,
+        salary: analysisData?.salary ?? null,
+        agreement: agreementFlag,
+        transcript: convo,
+        analysis: analysisData || null,
+        n_user_messages: nUser,
+        started_at: startedAtRef.current,
+        finished_at: new Date().toISOString(),
+      }),
+    });
+  } catch (err) {
+    console.error("❌ saveConversation failed:", err);
+  }
+}
 
+  
   // --- 💬 Send message handler ---
   async function sendMessage(e) {
     e?.preventDefault?.();
     if (!input.trim() || inputDisabled) return;
+    if (!startedAtRef.current) startedAtRef.current = new Date().toISOString();
 
     const newMessages = [...messages, { role: "user", content: input }];
     setMessages(newMessages);
@@ -181,6 +207,7 @@ export default function Page() {
         ];
         setMessages(done);
         const analysisData = await runAnalysis(done);
+        await saveConversation(done, analysisData, "yes");
         sendToQualtrics(analysisData, "yes");
         return;
       }
@@ -194,6 +221,7 @@ export default function Page() {
         ];
         setMessages(done);
         const analysisData = await runAnalysis(done);
+        await saveConversation(done, analysisData, "no");
         sendToQualtrics(analysisData, "no");
         return;
       }
@@ -221,6 +249,7 @@ export default function Page() {
     setMessages(done);
     const analysisData = await runAnalysis(done);
     const agreementFlag = analysisData?.agreement || "manual";
+     await saveConversation(done, analysisData, agreementFlag);
     sendToQualtrics(analysisData, agreementFlag);
   }
 
