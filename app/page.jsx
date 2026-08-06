@@ -129,7 +129,6 @@ export default function Page() {
             ...analysisData.Collaborating,
             ...analysisData.Compromising,
             ...analysisData.Accommodating,
-            ...analysisData.Avoiding,
           },
         },
         "*"
@@ -267,7 +266,6 @@ async function saveConversation(convo, analysisData, agreementFlag) {
       { name: "Collaborating", score: avg(analysis.Collaborating) },
       { name: "Compromising", score: avg(analysis.Compromising) },
       { name: "Accommodating", score: avg(analysis.Accommodating) },
-      { name: "Avoiding", score: avg(analysis.Avoiding) },
     ];
   };
 
@@ -387,7 +385,6 @@ async function saveConversation(convo, analysisData, agreementFlag) {
                 "Collaborating",
                 "Compromising",
                 "Accommodating",
-                "Avoiding",
               ].map((dim) => (
                 <div key={dim}>
                   <h3 className="font-semibold text-gray-800">{dim}</h3>
