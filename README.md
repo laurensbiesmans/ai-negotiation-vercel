@@ -26,3 +26,4 @@ Neutral, AI-driven salary negotiation simulator built with Next.js 14 (App Route
 ## 4) Notes
 - All keys are read from environment variables (no secrets in code).
 - The analysis endpoint attempts to coerce model output to valid JSON.
+ 
