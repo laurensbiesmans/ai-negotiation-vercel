@@ -92,7 +92,7 @@ export async function POST(req) {
       return Response.json({ error: "No conversation provided." }, { status: 400 });
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-mini",
       response_format: { type: "json_object" },
       messages: [
         {
