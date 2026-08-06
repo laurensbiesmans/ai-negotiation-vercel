@@ -14,7 +14,7 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const {
+  const {
       rid,
       cond = null,
       salary = null,
@@ -24,6 +24,8 @@ export async function POST(req) {
       n_user_messages = null,
       started_at = null,
       finished_at = null,
+      currency = null,
+      anchor = null,
     } = body || {};
 
     if (!rid) {
@@ -49,6 +51,8 @@ export async function POST(req) {
           n_user_messages,
           started_at,
           finished_at,
+          currency,
+          anchor,
         },
         { onConflict: "rid" }
       );
