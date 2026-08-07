@@ -207,37 +207,7 @@ export default function Page() {
         negStateRef.current = data.state;
       }
 
-      // ✅ Auto-closure: agreement
-      if (detectAgreement(hrText)) {
-        setInputDisabled(true);
-        const done = [
-          ...updated,
-          {
-            role: "system",
-            content:
-              "✅ Agreement reached. Negotiation concluded. Please move on to the next question.",
-          },
-        ];
-        setMessages(done);
-        const analysisData = await runAnalysis(done);
-        await saveConversation(done, analysisData, "yes");
-        sendToQualtrics(analysisData, "yes");
-        return;
-      }
-
-      // ❌ Auto-closure: no agreement
-      if (detectNoAgreement(hrText)) {
-        setInputDisabled(true);
-        const done = [
-          ...updated,
-          { role: "system", content: "❌ No agreement. Negotiation concluded." },
-        ];
-        setMessages(done);
-        const analysisData = await runAnalysis(done);
-        await saveConversation(done, analysisData, "no");
-        sendToQualtrics(analysisData, "no");
-        return;
-      }
+   
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -248,24 +218,22 @@ export default function Page() {
     }
   }
 
-  // --- 🖐️ Manual finish ---
-  async function finishManually() {
+ // --- 🖐️ Manual finish (accept or decline) ---
+  async function finishManually(agreed) {
     setInputDisabled(true);
+    const flag = agreed ? "yes" : "no";
+    const closingText = agreed
+      ? "✅ You accepted the offer and closed the negotiation. Please move on to the next question."
+      : "❌ You declined the offer and closed the negotiation. Please move on to the next question.";
     const done = [
       ...messages,
-      {
-        role: "system",
-        content:
-          "✅ You have manually finished the conversation. Please move on to the next question.",
-      },
+      { role: "system", content: closingText },
     ];
     setMessages(done);
     const analysisData = await runAnalysis(done);
-    const agreementFlag = analysisData?.agreement || "manual";
-    await saveConversation(done, analysisData, agreementFlag);
-    sendToQualtrics(analysisData, agreementFlag);
+    await saveConversation(done, analysisData, flag);
+    sendToQualtrics(analysisData, flag);
   }
-
   // --- 📈 Chart data ---
   const getIndexData = (analysis) => {
     if (!analysis) return [];
@@ -332,13 +300,22 @@ export default function Page() {
           Send
         </button>
 
-        <button
+                <button
           type="button"
-          onClick={finishManually}
+          onClick={() => finishManually(true)}
           disabled={loading || inputDisabled}
           className="px-4 py-2 bg-emerald-600 text-white rounded-full text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
         >
-          Finish conversation
+          Accept offer and close negotiation
+        </button>
+
+        <button
+          type="button"
+          onClick={() => finishManually(false)}
+          disabled={loading || inputDisabled}
+          className="px-4 py-2 bg-rose-600 text-white rounded-full text-sm font-medium hover:bg-rose-700 disabled:opacity-50"
+        >
+          Decline offer and close negotiation
         </button>
       </form>
 
