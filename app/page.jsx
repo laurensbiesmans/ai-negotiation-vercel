@@ -13,6 +13,7 @@ import {
 // --- Currency + anchor helpers ---
 const CUR_SYMBOL = { GBP: "£", USD: "$" };
 const round25 = (x) => Math.round(Number(x) / 25) * 25;
+const round10 = (x) => Math.round(Number(x) / 10) * 10;
 
 function buildOpening(anchor, cur) {
   const s = CUR_SYMBOL[cur] || "£";
@@ -44,7 +45,7 @@ export default function Page() {
     metaRef.current.rid = p.get("rid") || null;
     metaRef.current.cond = p.get("cond") || null;
     const rawAnchor = parseFloat(p.get("anchor"));
-    const anchor = round25(isNaN(rawAnchor) ? 2500 : rawAnchor);
+    const anchor = round10(isNaN(rawAnchor) ? 2500 : rawAnchor);
     const currency = p.get("cur") || "GBP";
     metaRef.current.anchor = anchor;
     metaRef.current.currency = currency;
