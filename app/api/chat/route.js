@@ -4,10 +4,11 @@ import OpenAI from "openai";
 
 const CUR_SYMBOL = { GBP: "£", USD: "$" };
 const round25 = (x) => Math.round(Number(x) / 25) * 25;
+const round10 = (x) => Math.round(Number(x) / 10) * 10;
 
 // Vaste bod-ladder uit de anchor (sliderwaarde). Plafond = +20%. Taper 8/6/4/2.
 function buildLadder(anchor) {
-  const a = round25(anchor);
+  const a = round10(anchor);
   return [
     a,                 // opening (= anchor)
     round25(a * 1.08), // na 1e gegronde concessie
