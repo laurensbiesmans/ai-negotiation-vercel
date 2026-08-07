@@ -223,8 +223,8 @@ export default function Page() {
     setInputDisabled(true);
     const flag = agreed ? "yes" : "no";
     const closingText = agreed
-      ? "✅ You accepted the offer and closed the negotiation. Please move on to the next question."
-      : "❌ You declined the offer and closed the negotiation. Please move on to the next question.";
+      ? "✅ You accepted the offer and closed the negotiation. Please wait until you are automatically sent to the next question. This can take a couple of seconds."
+      : "❌ You declined the offer and closed the negotiation. Please wait until you are automatically sent to the next question. This can take a couple of seconds.";
     const done = [
       ...messages,
       { role: "system", content: closingText },
