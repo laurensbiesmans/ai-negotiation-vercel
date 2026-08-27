@@ -1,19 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 
 // --- Currency + anchor helpers ---
 const CUR_SYMBOL = { GBP: "£", USD: "$" };
 const OPENING_DISCOUNT = 0.90;
-const round25 = (x) => Math.round(Number(x) / 25) * 25;
 const round10 = (x) => Math.round(Number(x) / 10) * 10;
 
 function buildOpening(anchor, cur) {
@@ -26,11 +16,11 @@ export default function Page() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState(null);
   const [inputDisabled, setInputDisabled] = useState(false);
 
   const negStateRef = useRef({});
   const metaRef = useRef({ rid: null, cond: null, anchor: 2500, currency: "GBP" });
+  const openingRef = useRef(null);
   const bottomRef = useRef(null);
   const startedAtRef = useRef(null);
 
@@ -51,84 +41,18 @@ export default function Page() {
     metaRef.current.anchor = anchor;
     metaRef.current.currency = currency;
     const opening = round10(anchor * OPENING_DISCOUNT);
+    openingRef.current = opening;
     setMessages([{ role: "assistant", content: buildOpening(opening, currency) }]);
   }, []);
 
-  // --- 🧠 Agreement detection ---
-  function normalize(text) {
-    return text
-      .toLowerCase()
-      .replace(/[.,!?'"-]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function detectAgreement(text) {
-    const t = normalize(text);
-    const patterns = [
-      /\bwe have a deal\b/,
-      /\bcongratulations\b/,
-      /\bwelcome aboard\b/,
-      /\bwelcome to the team\b/,
-      /\bi'?m glad we could reach an agreement\b/,
-      /\bi'?m happy to confirm our agreement\b/,
-      /\bwe have an agreement\b/,
-      /\bi'?m pleased to finalize the offer\b/,
-      /\boffer confirmed\b/,
-      /\bthank you for accepting\b/,
-      /\bi'?m looking forward to working together\b/,
-      /\bconsider this offer accepted\b/,
-      /\bthe agreement is complete\b/,
-      /\bwe'?re excited to have you join\b/,
-      /\bthank you for (your )?acceptance\b/,
-      /\bwe'?re pleased to confirm your salary\b/,
-      /\blook forward to having you (on board|join|in the team)\b/,
-    ];
-    return patterns.some((re) => re.test(t));
-  }
-
-  function detectNoAgreement(text) {
-    const t = normalize(text);
-    const patterns = [
-      /\bno agreement\b/,
-      /\bwe (cannot|can't) reach an agreement\b/,
-      /\bwe (cannot|can't) proceed\b/,
-      /\bwe (won't|will not) be able to move forward\b/,
-      /\bwe have to close this process\b/,
-      /\bwe will (withdraw|retract) the offer\b/,
-      /\bi understand you (decline|are declining)\b/,
-      /\bthank you for your time\b.*\bwe (cannot|can't) continue\b/,
-    ];
-    return patterns.some((re) => re.test(t));
-  }
-
-  // --- 📊 Run analysis ---
-  async function runAnalysis(messagesOverride) {
-    const arr = messagesOverride || messages;
-    const transcript = arr.map((m) => `${m.role}: ${m.content}`).join("\n");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation: transcript }),
-      });
-      const data = await res.json();
-      const result = data.analysis || data;
-      console.log("🔍 Cleaned analysis result:", result);
-      setAnalysis(result);
-      return result;
-    } catch (err) {
-      console.error("❌ Analysis failed:", err);
-      setAnalysis({ error: "Analysis failed." });
-      return null;
-    } finally {
-      setLoading(false);
-    }
+  // --- 💰 Final offer on the table ---
+  function currentSalary() {
+    const s = Number(negStateRef.current?.current_offer_net);
+    return isNaN(s) ? openingRef.current : s;
   }
 
   // --- 🧭 Send results to Qualtrics ---
-  function sendToQualtrics(analysisData, agreementFlag) {
+  function sendToQualtrics(agreementFlag) {
     if (window.parent && window.parent.postMessage) {
       window.parent.postMessage(
         {
@@ -136,11 +60,7 @@ export default function Page() {
           embeddedData: {
             rid: metaRef.current.rid || "TEST",
             agreement: agreementFlag,
-            salary: analysisData?.salary || "0",
-            ...analysisData.Competing,
-            ...analysisData.Collaborating,
-            ...analysisData.Compromising,
-            ...analysisData.Accommodating,
+            salary: currentSalary() ?? "0",
           },
         },
         "*"
@@ -149,7 +69,7 @@ export default function Page() {
   }
 
   // --- 💾 Save full conversation to database ---
-  async function saveConversation(convo, analysisData, agreementFlag) {
+  async function saveConversation(convo, agreementFlag) {
     try {
       const nUser = convo.filter((m) => m.role === "user").length;
       await fetch("/api/save", {
@@ -158,10 +78,10 @@ export default function Page() {
         body: JSON.stringify({
           rid: metaRef.current.rid || "TEST",
           cond: metaRef.current.cond || null,
-          salary: analysisData?.salary ?? null,
+          salary: currentSalary() ?? null,
           agreement: agreementFlag,
           transcript: convo,
-          analysis: analysisData || null,
+          analysis: null,
           n_user_messages: nUser,
           started_at: startedAtRef.current,
           finished_at: new Date().toISOString(),
@@ -208,8 +128,6 @@ export default function Page() {
       if (data?.state && typeof data.state === "object") {
         negStateRef.current = data.state;
       }
-
-   
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -220,9 +138,10 @@ export default function Page() {
     }
   }
 
- // --- 🖐️ Manual finish (accept or decline) ---
+  // --- 🖐️ Manual finish (accept or decline) ---
   async function finishManually(agreed) {
     setInputDisabled(true);
+    setLoading(true);
     const flag = agreed ? "yes" : "no";
     const closingText = agreed
       ? "✅ You accepted the offer and closed the negotiation. Please wait until you are automatically sent to the next question. This can take a couple of seconds."
@@ -232,26 +151,10 @@ export default function Page() {
       { role: "system", content: closingText },
     ];
     setMessages(done);
-    const analysisData = await runAnalysis(done);
-    await saveConversation(done, analysisData, flag);
-    sendToQualtrics(analysisData, flag);
+    await saveConversation(done, flag);
+    setLoading(false);
+    sendToQualtrics(flag);
   }
-  // --- 📈 Chart data ---
-  const getIndexData = (analysis) => {
-    if (!analysis) return [];
-
-    const avg = (obj = {}) => {
-      const vals = Object.values(obj).map((v) => parseFloat(v) || 0);
-      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-    };
-
-    return [
-      { name: "Competing", score: avg(analysis.Competing) },
-      { name: "Collaborating", score: avg(analysis.Collaborating) },
-      { name: "Compromising", score: avg(analysis.Compromising) },
-      { name: "Accommodating", score: avg(analysis.Accommodating) },
-    ];
-  };
 
   // --- 🧩 Render ---
   return (
@@ -302,7 +205,7 @@ export default function Page() {
           Send
         </button>
 
-                <button
+        <button
           type="button"
           onClick={() => finishManually(true)}
           disabled={loading || inputDisabled}
@@ -320,90 +223,6 @@ export default function Page() {
           Decline offer and close negotiation
         </button>
       </form>
-
-      {/* 📊 AI Analysis */}
-      {analysis && (
-        <div className="p-4 bg-gray-50 border-t border-gray-200 text-sm">
-          <h2 className="text-base font-semibold mb-2">
-            Negotiation Style Profile
-          </h2>
-          <div className="w-full h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={getIndexData(analysis)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis domain={[1, 7]} />
-                <Tooltip />
-                <Bar dataKey="score" radius={[6, 6, 0, 0]} fill="#2563eb" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          {/* --- Summary info (salary & agreement) --- */}
-          <div className="mt-3 text-gray-700 text-sm">
-            {analysis.salary ? (
-              <p>
-                <strong>Final salary:</strong>{" "}
-                {(CUR_SYMBOL[metaRef.current.currency] || "£")}
-                {analysis.salary.toLocaleString("en-US")}
-              </p>
-            ) : (
-              <p>
-                <strong>Final salary:</strong> Not specified
-              </p>
-            )}
-
-            <p>
-              <strong>Agreement reached:</strong>{" "}
-              {analysis.agreement === "yes"
-                ? "✅ Yes"
-                : analysis.agreement === "no"
-                ? "❌ No"
-                : "Manual / Unclear"}
-            </p>
-          </div>
-
-          {/* --- Qualitative summary --- */}
-          <p className="mt-3 text-gray-600 italic">
-            {analysis.notes || "No qualitative summary available."}
-          </p>
-
-          {/* ▼ Detailed item scores */}
-          <details className="mt-4">
-            <summary className="cursor-pointer font-medium text-gray-700">
-              Show item scores (per dimension)
-            </summary>
-
-            <div className="mt-2 space-y-4 text-sm text-gray-700">
-              {[
-                "Competing",
-                "Collaborating",
-                "Compromising",
-                "Accommodating",
-              ].map((dim) => (
-                <div key={dim}>
-                  <h3 className="font-semibold text-gray-800">{dim}</h3>
-                  {analysis[dim] ? (
-                    <ul className="ml-4 list-disc">
-                      {Object.entries(analysis[dim])
-                        .filter(([k]) => !k.endsWith("_index"))
-                        .map(([key, value]) => (
-                          <li key={key}>
-                            <span className="font-mono text-gray-600">{key}</span>:{" "}
-                            <span className="text-gray-900">
-                              {typeof value === "number" ? value.toFixed(2) : value}
-                            </span>
-                          </li>
-                        ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-500 italic">No items scored.</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </details>
-        </div>
-      )}
     </div>
   );
 }
