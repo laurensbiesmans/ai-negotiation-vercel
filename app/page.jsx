@@ -12,6 +12,7 @@ import {
 
 // --- Currency + anchor helpers ---
 const CUR_SYMBOL = { GBP: "£", USD: "$" };
+const OPENING_DISCOUNT = 0.90;
 const round25 = (x) => Math.round(Number(x) / 25) * 25;
 const round10 = (x) => Math.round(Number(x) / 10) * 10;
 
@@ -49,7 +50,8 @@ export default function Page() {
     const currency = p.get("cur") || "GBP";
     metaRef.current.anchor = anchor;
     metaRef.current.currency = currency;
-    setMessages([{ role: "assistant", content: buildOpening(anchor, currency) }]);
+    const opening = round10(anchor * OPENING_DISCOUNT);
+    setMessages([{ role: "assistant", content: buildOpening(opening, currency) }]);
   }, []);
 
   // --- 🧠 Agreement detection ---
