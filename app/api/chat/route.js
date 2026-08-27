@@ -7,14 +7,16 @@ const round25 = (x) => Math.round(Number(x) / 25) * 25;
 const round10 = (x) => Math.round(Number(x) / 10) * 10;
 
 // Vaste bod-ladder uit de anchor (sliderwaarde). Plafond = +20%. Taper 8/6/4/2.
+const OPENING_DISCOUNT = 0.90; // opening = 10% onder het referentiesalaris
+
 function buildLadder(anchor) {
   const a = round10(anchor);
   return [
-    a,                 // opening (= anchor)
-    round25(a * 1.08), // na 1e gegronde concessie
-    round25(a * 1.14), // na 2e
-    round25(a * 1.18), // na 3e
-    round25(a * 1.20), // na 4e = plafond
+    round10(a * 0.90), // opening (-10%)
+    round25(a * 0.98), // na 1e gegronde concessie (+8)
+    round25(a * 1.04), // na 2e (+6)
+    round25(a * 1.08), // na 3e (+4)
+    round25(a * 1.10), // na 4e = plafond (+10%)
   ];
 }
 
