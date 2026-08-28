@@ -2,8 +2,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Salary Negotiator",
-  description: "AI-driven salary negotiation simulator"
+  title: "Horizon Innovations - Contract discussion",
+  description: "Office Coordinator role"
 };
 
 export default function RootLayout({ children }) {
