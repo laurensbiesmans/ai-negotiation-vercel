@@ -42,6 +42,7 @@ CURRENT SITUATION (the math is already done for you)
 - If, and ONLY if, the candidate gives a concrete justification THIS turn, your new offer MUST be EXACTLY ${sym}${nextCap} — unless the candidate asked for less than that, in which case match the amount they asked for. Never pick any other figure, and never invent an intermediate amount.
 - If there is no concrete justification, keep the offer exactly at ${sym}${currentOffer}.
 - The amount you state in "message" MUST be identical to "current_offer_net". Never mention a different figure.
+- Never lower an offer you have already made.
 - The "reasoning" field is internal. Its content must NEVER appear in "message".
 
 =========================
@@ -106,10 +107,21 @@ export async function POST(req) {
     const cur = currency || "GBP";
     const sym = CUR_SYMBOL[cur] || "£";
     const ladder = buildLadder(anchor || 2500);
+    const floor = ladder[0];
+    const ceiling = ladder[4];
 
     const n = Math.max(0, Math.min(Number(state?.concessions_made) || 0, 4));
-    const currentOffer = ladder[Math.min(n, 4)];
-    const nextCap = ladder[Math.min(n + 1, 4)];
+
+    // Het bod dat ECHT op tafel ligt, uit de lopende state — niet opnieuw
+    // afgeleid uit de ladder-index (dat veroorzaakte spookverhogingen).
+    const prev = Number(state?.current_offer_net);
+    const currentOffer =
+      !isNaN(prev) && prev >= floor && prev <= ceiling ? prev : floor;
+
+    // De volgende trede is het plafond voor deze beurt, maar nooit lager
+    // dan wat al geboden is (ratchet).
+    const nextCap = Math.max(ladder[Math.min(n + 1, 4)], currentOffer);
+
     const alreadyExplained = state?.explained_criteria === true;
 
     const completion = await client.chat.completions.create({
@@ -130,23 +142,20 @@ export async function POST(req) {
     if (!json.message) json.message = "Let's keep this professional. How would you like to proceed?";
     if (!json.state)   json.state   = {};
 
-    // Server-side vangnet: ladder afdwingen, niet enkel begrenzen
-    const floor = ladder[0];
-    const ceiling = ladder[4];
+    // Server-side vangnet: ladder afdwingen + ratchet
     const justified = json.state.candidate_gave_justification === true;
 
     if (justified) {
       const asked = Number(json.state.current_offer_net);
-      // de ladder-trede is bindend, tenzij de kandidaat om minder vroeg
       const target = (!isNaN(asked) && asked < nextCap) ? asked : nextCap;
-      json.state.current_offer_net = Math.min(Math.max(target, floor), ceiling);
+      // nooit onder het vorige bod, nooit boven het plafond
+      json.state.current_offer_net = Math.min(Math.max(target, currentOffer), ceiling);
       json.state.concessions_made = Math.min(n + 1, 4);
     } else {
       json.state.current_offer_net = currentOffer;
       json.state.concessions_made = n;
     }
 
-    // "uitleg gegeven" blijft aan zodra het één keer gebeurd is
     json.state.explained_criteria =
       alreadyExplained || json.state.explained_criteria === true;
 
